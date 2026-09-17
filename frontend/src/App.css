@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand: #0f392b;        /* Deep Forest Emerald */
+  --color-brand-accent: #15803d; /* Vibrant Emerald */
+  --color-surface: #fcfbf9;      /* Off-white warm paper */
+}
+
+/* Your print styles */
+@media print {
+  .no-print, nav, sidebar, button, input, form, h3 { display: none !important; }
+  body, html { background: #ffffff !important; }
+  .print-receipt { display: block !important; }
+}
+@media screen {
+  .print-receipt { display: none !important; }
+}

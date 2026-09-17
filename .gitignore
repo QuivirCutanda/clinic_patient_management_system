@@ -1,3 +1,14 @@
+# Root Dependencies
+node_modules/
+.pnpm-store/
+*.log
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
 # OS & Editor Files
 .DS_Store
 Thumbs.db
