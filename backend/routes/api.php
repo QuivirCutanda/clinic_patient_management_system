@@ -17,6 +17,8 @@ Route::middleware('auth:sanctum')->group(function () {
     });
     
     Route::get('/web/dashboard', [WebApiController::class, 'dashboard']);
+    Route::get('/web/todays-queue', [WebApiController::class, 'getTodaysQueue']);
+    Route::patch('/web/appointments/{id}/status', [WebApiController::class, 'updateQueueStatus']); 
     Route::post('/web/patients', [WebApiController::class, 'registerPatient']);
     Route::get('/web/patients', [WebApiController::class, 'searchPatients']);
     Route::get('/web/appointments', [WebApiController::class, 'getAppointments']);
@@ -34,4 +36,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mobile/appointments', [MobileApiController::class, 'getAppointments']);
     Route::get('/mobile/my-records', [MobileApiController::class, 'getRecords']);
     Route::get('/mobile/my-bills', [MobileApiController::class, 'getBills']);
+    Route::get('/mobile/patient-info', [MobileApiController::class, 'getPatientInfo']);
+    Route::put('/mobile/patient-info', [MobileApiController::class, 'updatePatientInfo']); 
+
 });
