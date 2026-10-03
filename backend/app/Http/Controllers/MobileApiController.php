@@ -147,4 +147,59 @@ public function getRecords(Request $request)
 
         return response()->json($bills);
     }
+
+    public function getPatientInfo(Request $request)
+    {
+    $patient = $request->user();
+
+    return response()->json([
+        'id' => $patient->id,
+        'email' => $patient->email,
+        'full_name' => $patient->full_name,
+        'date_of_birth' => $patient->date_of_birth,
+        'sex' => $patient->sex,
+        'address' => $patient->address,
+        'contact_number' => $patient->contact_number,
+        'emergency_contact' => $patient->emergency_contact,
+        'insurance_provider' => $patient->insurance_provider,
+        'blood_type' => $patient->blood_type,
+        'allergies' => $patient->allergies,
+    ]);
+    }
+
+    public function updatePatientInfo(Request $request)
+    {
+    /** @var \App\Models\Patient $patient */
+    $patient = $request->user();
+
+    $request->validate([
+        'full_name' => 'required|string|max:150',
+        'date_of_birth' => 'required|date',
+        'sex' => 'nullable|in:Male,Female,Other',
+        'address' => 'required|string',
+        'contact_number' => 'required|string|max:20',
+        'emergency_contact' => 'required|string|max:150',
+        'insurance_provider' => 'required|string|max:150',
+        'blood_type' => 'required|string|max:5',
+        'allergies' => 'required|string',
+    ]);
+
+    $patient->update($request->only([
+        'full_name',
+        'date_of_birth',
+        'sex',
+        'address',
+        'contact_number',
+        'emergency_contact',
+        'insurance_provider',
+        'blood_type',
+        'allergies'
+    ]));
+
+    return response()->json([
+        'status' => 'success',
+        'message' => 'Patient information updated successfully',
+        'patient' => $patient
+    ]);
+    }
 }

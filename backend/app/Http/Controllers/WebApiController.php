@@ -233,54 +233,118 @@ public function submitConsultation(Request $request)
     return response()->json(['status' => 'success'], 201);
 }
 
-public function processBill(Request $request)
+    public function processBill(Request $request)
+    {
+        $request->validate([
+            'consultation_id' => 'required|integer|exists:consultations,id',
+            'patient_id' => 'required|integer|exists:patients,id',
+            'fee_amount' => 'required|numeric|min:0',
+            'payment_method' => 'required|string|in:Cash,Digital',
+        ]);
+
+        $consultation = DB::table('consultations')
+            ->where('id', $request->consultation_id)
+            ->where('patient_id', $request->patient_id)
+            ->first();
+
+        if (!$consultation) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid transaction: Consultation record does not match the specified Patient ID.'
+            ], 422);
+        }
+
+        $existingBill = DB::table('billing')
+            ->where('consultation_id', $request->consultation_id)
+            ->where('status', 'Paid')
+            ->first();
+
+        if ($existingBill) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Payment has already been processed for this consultation.'
+            ], 422);
+        }
+
+        $id = DB::table('billing')->insertGetId([
+            'consultation_id' => $request->consultation_id,
+            'patient_id' => $request->patient_id,
+            'fee_amount' => $request->fee_amount,
+            'payment_method' => $request->payment_method,
+            'status' => 'Paid',
+            'payment_date' => Carbon::now(),
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ]);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Payment logged successfully.',
+            'invoice_id' => $id,
+        ], 201);
+        }
+
+        public function getTodaysQueue(Request $request)
+    {
+        $today = \Carbon\Carbon::today()->toDateString();
+        
+        $query = DB::table('appointments')
+            ->join('patients', 'appointments.patient_id', '=', 'patients.id')
+            ->join('users', 'appointments.doctor_id', '=', 'users.id')
+            ->where('appointments.appointment_date', $today)
+            ->select(
+                'appointments.id as appointment_id',
+                'appointments.appointment_time',
+                'patients.full_name as patient_name',
+                'users.name as doctor_name',
+                'appointments.status'
+            )
+            ->orderBy('appointments.appointment_time', 'asc');
+
+        if ($request->user()->role === 'Doctor') {
+            $query->where('appointments.doctor_id', $request->user()->id);
+        }
+
+        $queue = $query->get()->map(function($item) {
+            return [
+                'appointment_id' => $item->appointment_id,
+                'time' => \Carbon\Carbon::parse($item->appointment_time)->format('g:i A'),
+                'patient' => $item->patient_name,
+                'doctor' => $item->doctor_name,
+                'type' => 'General Checkup',
+                'status' => $item->status == 'Confirmed' ? 'Waiting' : $item->status, 
+            ];
+        });
+
+        return response()->json($queue);
+        }
+
+    public function updateQueueStatus(Request $request, $id)
 {
     $request->validate([
-        'consultation_id' => 'required|integer|exists:consultations,id',
-        'patient_id' => 'required|integer|exists:patients,id',
-        'fee_amount' => 'required|numeric|min:0',
-        'payment_method' => 'required|string|in:Cash,Digital',
+        'status' => 'required|string|in:Pending,Confirmed,Cancelled',
     ]);
 
-    $consultation = DB::table('consultations')
-        ->where('id', $request->consultation_id)
-        ->where('patient_id', $request->patient_id)
-        ->first();
+    $updated = DB::table('appointments')
+        ->where('id', $id)
+        ->update([
+            'status' => $request->status,
+            'updated_at' => Carbon::now(),
+        ]);
 
-    if (!$consultation) {
+    if (!$updated) {
         return response()->json([
             'status' => 'error',
-            'message' => 'Invalid transaction: Consultation record does not match the specified Patient ID.'
-        ], 422);
+            'message' => 'Appointment not found or no changes made.'
+        ], 404);
     }
-
-    $existingBill = DB::table('billing')
-        ->where('consultation_id', $request->consultation_id)
-        ->where('status', 'Paid')
-        ->first();
-
-    if ($existingBill) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Payment has already been processed for this consultation.'
-        ], 422);
-    }
-
-    $id = DB::table('billing')->insertGetId([
-        'consultation_id' => $request->consultation_id,
-        'patient_id' => $request->patient_id,
-        'fee_amount' => $request->fee_amount,
-        'payment_method' => $request->payment_method,
-        'status' => 'Paid',
-        'payment_date' => Carbon::now(),
-        'created_at' => Carbon::now(),
-        'updated_at' => Carbon::now(),
-    ]);
 
     return response()->json([
         'status' => 'success',
-        'message' => 'Payment logged successfully.',
-        'invoice_id' => $id,
-    ], 201);
-    }
+        'message' => 'Queue status updated successfully.',
+        'appointment_id' => (int)$id,
+        'new_status' => $request->status
+    ]);
+}
+
 }

@@ -1,0 +1,106 @@
+@baseUrl = http://localhost:8000/api
+
+### 1. PATIENT REGISTRATION
+# @name patientRegister
+POST {{baseUrl}}/mobile/register
+Content-Type: application/json
+Accept: application/json
+
+{
+    "email": "juan.delacruz@example.com",
+    "password": "password123",
+    "full_name": "Juan Dela Cruz",
+    "contact_number": "09123456789",
+    "emergency_contact": "09987654321",
+    "insurance_provider": "PhilHealth"
+}
+
+###
+
+### 2. PATIENT LOGIN
+# @name patientLogin
+POST {{baseUrl}}/mobile/login
+Content-Type: application/json
+Accept: application/json
+
+{
+    "email": "juan@example.com",
+    "password": "password123"
+}
+
+###
+
+###GET THE TOKEN MULA SA LOGIN RESPONSE
+@authToken = {{patientLogin.response.body.token}}
+
+###
+
+### 3. GET LIST OF DOCTORS
+# @name getDoctors
+GET {{baseUrl}}/mobile/doctors
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+###
+
+### 4. BOOK AN APPOINTMENT
+# @name bookAppointment
+POST {{baseUrl}}/mobile/appointments
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "doctor_id": 1,
+    "appointment_date": "2026-10-15",
+    "appointment_time": "14:00:00"
+}
+
+###
+
+### 5. GET PATIENT APPOINTMENTS
+# @name getAppointments
+GET {{baseUrl}}/mobile/appointments
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+###
+
+### 6. GET MEDICAL RECORDS (CONSULTATIONS)
+# @name getRecords
+GET {{baseUrl}}/mobile/my-records
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+###
+
+### 7. GET BILLS AND BILLING STATUS
+# @name getBills
+GET {{baseUrl}}/mobile/my-bills
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### 8. GET PATIENT PERSONAL INFORMATION
+# @name getPatientInfo
+GET {{baseUrl}}/mobile/patient-info
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### 9. UPDATE PATIENT PERSONAL INFORMATION
+# @name updatePatientInfo
+PUT {{baseUrl}}/mobile/patient-info
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "full_name": "Juan Dela Cruz Jr.",
+    "date_of_birth": "1995-08-25",
+    "sex": "Male",
+    "address": "123 Rizal Street, Barangay Central, Manila",
+    "contact_number": "09171234567",
+    "emergency_contact": "09187654321",
+    "insurance_provider": "Maxicare",
+    "blood_type": "O+",
+    "allergies": "Peanuts, Penicillin"
+}

@@ -18,9 +18,15 @@ class Patient extends Authenticatable
         'contact_number',
         'emergency_contact',
         'insurance_provider',
+        'date_of_birth',
+        'sex',
+        'address',
+        'blood_type',
+        'allergies',
     ];
 
     protected $hidden = [
         'password',
+        'remember_token',
     ];
 }

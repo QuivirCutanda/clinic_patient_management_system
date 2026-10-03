@@ -1,0 +1,148 @@
+@baseUrl = http://localhost:8000/api
+@appointment_id = 1
+
+### 1. WEB APP STAFF LOGIN (Doctor, Nurse, or Cashier)
+# @name webLogin
+POST {{baseUrl}}/web/login
+Content-Type: application/json
+Accept: application/json
+
+{
+    "username": "admin1@clinic.com",
+    "password": "password123"
+}
+
+###
+
+@webAuthToken = {{webLogin.response.body.token}}
+
+###
+
+### 2. GET DASHBOARD METRICS (Top Bar Analytics)
+# @name getDashboard
+GET {{baseUrl}}/web/dashboard
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
+
+### 3. GET TODAY'S QUEUE (Umiiral na endpoint sa iyong routes)
+# @name getTodaysQueue
+GET {{baseUrl}}/web/todays-queue
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
+
+### 3.1 UPDATE QUEUE / APPOINTMENT STATUS
+# @name updateQueueStatus
+PATCH {{baseUrl}}/web/appointments/{{appointment_id}}/status
+Authorization: Bearer {{webAuthToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "status": "Confirmed"
+}
+###
+
+### 4. REGISTER NEW PATIENT (Sa Clinic Desk)
+# @name registerPatient
+POST {{baseUrl}}/web/patients
+Authorization: Bearer {{webAuthToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "email": "pedro.penduko@example.com",
+    "password": "temporaryPassword123",
+    "full_name": "Pedro Penduko",
+    "contact_number": "09151234567",
+    "emergency_contact": "09167654321",
+    "insurance_provider": "PhilHealth"
+}
+
+### I-capture nat i-save ang bagong patient ID para sa susunod na mga tests
+@newPatientId = {{registerPatient.response.body.patient_id}}
+
+###
+
+### 5. SEARCH PATIENT & OPEN MEDICAL HISTORY
+# @name searchPatients
+GET {{baseUrl}}/web/patients?search=juan
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
+
+### 6. VIEW DAILY APPOINTMENT ROSTER
+# @name getAppointments
+GET {{baseUrl}}/web/appointments?date=2026-10-03
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
+
+### 7. ADD APPOINTMENT (Walk-In or Staff Scheduling)
+# @name addAppointment
+POST {{baseUrl}}/web/appointments
+Authorization: Bearer {{webAuthToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "patient_id": {{newPatientId}},
+    "doctor_id": 1,
+    "appointment_date": "2026-10-03",
+    "appointment_time": "10:30:00"
+}
+
+###
+
+### 8. CONFIRM PATIENT APPOINTMENT (Para maging 'Waiting' sa Queue)
+# @name confirmAppointment
+PATCH {{baseUrl}}/web/appointments/1/confirm
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
+
+### 9. CANCEL APPOINTMENT
+# @name cancelAppointment
+PATCH {{baseUrl}}/web/appointments/1/cancel
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
+
+### 10. SUBMIT DOCTOR CONSULTATION CHECK-UP
+# @name submitConsultation
+POST {{baseUrl}}/web/consultations
+Authorization: Bearer {{webAuthToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "appointment_id": 1,
+    "patient_id": 1,
+    "doctor_id": 1,
+    "vitals": "BP: 120/80, Temp: 36.8°C, HR: 72 bpm",
+    "diagnosis": "Acute Tonsillitis",
+    "prescription_list": "Amoxicillin 500mg, 3x a day for 7 days\nParacetamol 500mg every 4 hours as needed for fever"
+}
+
+###
+
+### 11. PROCESS BILLING TRANSACTION (Cashier Counter)
+# @name processBill
+POST {{baseUrl}}/web/billing
+Authorization: Bearer {{webAuthToken}}
+Content-Type: application/json
+Accept: application/json
+
+{
+    "consultation_id": 1,
+    "patient_id": 1,
+    "fee_amount": 500.00,
+    "payment_method": "Cash"
+}
