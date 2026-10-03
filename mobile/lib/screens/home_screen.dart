@@ -4,6 +4,7 @@ import 'auth_screen.dart';
 import 'book_visit_tab.dart';
 import 'my_records_tab.dart';
 import 'my_bills_tab.dart';
+import 'profile_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,6 +29,7 @@ class _HomeScreenState extends State<HomeScreen> {
     BookVisitTab(),
     MyRecordsTab(),
     MyBillsTab(),
+    ProfileTab(),
   ];
 
   @override
@@ -254,13 +256,25 @@ class _HomeScreenState extends State<HomeScreen> {
             BottomNavigationBarItem(
               icon: Padding(
                 padding: EdgeInsets.only(bottom: 4),
-                child: Icon(Icons.receipt_long_outlined, size: 20),
+                child: Icon(Icons.credit_card_outlined, size: 20),
               ),
               activeIcon: Padding(
                 padding: EdgeInsets.only(bottom: 4),
-                child: Icon(Icons.receipt_long, size: 20),
+                child: Icon(Icons.credit_card, size: 20),
               ),
               label: 'My Bills',
+            ),
+            // Added the Profile tab bar item here
+            BottomNavigationBarItem(
+              icon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.person_outline_rounded, size: 20),
+              ),
+              activeIcon: Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Icon(Icons.person_rounded, size: 20),
+              ),
+              label: 'Profile',
             ),
           ],
         ),
