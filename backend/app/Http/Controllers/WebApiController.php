@@ -45,12 +45,13 @@ public function dashboard(Request $request)
         ->sum('fee_amount');
 
     $patientsWaiting = DB::table('appointments')
-        ->whereIn('status', ['Pending', 'Confirmed'])
+        ->where('status', 'Waiting')
         ->whereDate('appointment_date', $today)
         ->count();
 
     $activeDoctors = DB::table('appointments')
         ->whereDate('appointment_date', $today)
+        ->where('status', '!=', 'Cancelled')
         ->distinct('doctor_id')
         ->count('doctor_id');
 
@@ -65,6 +66,7 @@ public function dashboard(Request $request)
         ->join('patients', 'appointments.patient_id', '=', 'patients.id')
         ->join('users as doctors', 'appointments.doctor_id', '=', 'doctors.id')
         ->whereDate('appointments.appointment_date', $today)
+        ->where('appointments.status', 'Waiting')
         ->select(
             'appointments.id as appointment_id',
             'patients.full_name as patient_name',
@@ -75,8 +77,9 @@ public function dashboard(Request $request)
         ->orderBy('appointments.appointment_time', 'asc')
         ->get();
 
-    $completedToday = DB::table('consultations')
-        ->whereDate('created_at', $today)
+    $completedToday = DB::table('appointments')
+        ->whereDate('appointment_date', $today)
+        ->where('status', 'Completed')
         ->count();
 
     return response()->json([
@@ -225,46 +228,61 @@ public function cancelAppointment($id)
 
 
 public function submitConsultation(Request $request)
-{
-    $request->validate([
-        'appointment_id' => 'required|integer|exists:appointments,id',
-        'patient_id' => 'required|integer|exists:patients,id',
-        'doctor_id' => 'required|integer|exists:users,id',
-        'vitals' => 'required|string',
-        'diagnosis' => 'required|string',
-        'prescription_list' => 'required|string',
-    ]);
+    {
+        $request->validate([
+            'appointment_id' => 'required|integer|exists:appointments,id',
+            'patient_id' => 'required|integer|exists:patients,id',
+            'doctor_id' => 'required|integer|exists:users,id',
+            'vitals' => 'required|string',
+            'diagnosis' => 'required|string',
+            'prescription_list' => 'required|string',
+        ]);
 
-    $today = Carbon::today()->toDateString();
+        $today = Carbon::today()->toDateString();
 
-    $appointment = DB::table('appointments')
-        ->where('id', $request->appointment_id)
-        ->where('patient_id', $request->patient_id)
-        ->where('doctor_id', $request->doctor_id)
-        ->where('appointment_date', $today)
-        ->where('status', '!=', 'Cancelled')
-        ->first();
+        $appointment = DB::table('appointments')
+            ->where('id', $request->appointment_id)
+            ->where('patient_id', $request->patient_id)
+            ->where('doctor_id', $request->doctor_id)
+            ->where('appointment_date', $today)
+            ->where('status', '!=', 'Cancelled')
+            ->first();
 
-    if (!$appointment) {
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Invalid consultation: No active appointment found for this patient and doctor today.'
-        ], 422);
+        if (!$appointment) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Invalid consultation: No active appointment found for this patient and doctor today.'
+            ], 422);
+        }
+
+        return DB::transaction(function () use ($request) {
+            $consultationId = DB::table('consultations')->insertGetId([
+                'appointment_id' => $request->appointment_id,
+                'patient_id' => $request->patient_id,
+                'doctor_id' => $request->doctor_id,
+                'vitals' => $request->vitals,
+                'diagnosis' => $request->diagnosis,
+                'prescription_list' => $request->prescription_list,
+                'created_at' => Carbon::now(),
+                'updated_at' => Carbon::now(),
+            ]);
+
+            DB::table('appointments')
+                ->where('id', $request->appointment_id)
+                ->update([
+                    'status' => 'Completed',
+                    'updated_at' => Carbon::now(),
+                ]);
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Consultation saved and appointment marked as completed.',
+                'consultation_id' => $consultationId,
+                'appointment_id' => (int) $request->appointment_id,
+                'new_status' => 'Completed'
+            ], 201);
+        });
     }
-
-    DB::table('consultations')->insert([
-        'appointment_id' => $request->appointment_id,
-        'patient_id' => $request->patient_id,
-        'doctor_id' => $request->doctor_id,
-        'vitals' => $request->vitals,
-        'diagnosis' => $request->diagnosis,
-        'prescription_list' => $request->prescription_list,
-        'created_at' => Carbon::now(),
-        'updated_at' => Carbon::now(),
-    ]);
-
-    return response()->json(['status' => 'success'], 201);
-}
 
     public function processBill(Request $request)
     {
@@ -352,10 +370,11 @@ public function submitConsultation(Request $request)
         return response()->json($queue);
         }
 
-    public function updateQueueStatus(Request $request, $id)
+
+        public function updateQueueStatus(Request $request, $id)
 {
     $request->validate([
-        'status' => 'required|string|in:Pending,Confirmed,Cancelled',
+        'status' => 'required|string|in:Pending,Confirmed,Waiting,Completed,Cancelled',
     ]);
 
     $updated = DB::table('appointments')
@@ -391,5 +410,66 @@ public function getDoctors()
 }
 
 
+public function searchCheckIn(Request $request)
+    {
+        $search = trim($request->query('query', ''));
+        $today = Carbon::today()->toDateString();
+
+        $appointments = DB::table('appointments')
+            ->join('patients', 'appointments.patient_id', '=', 'patients.id')
+            ->join('users as doctors', 'appointments.doctor_id', '=', 'doctors.id')
+            ->whereDate('appointments.appointment_date', $today)
+            ->where('appointments.status', 'Confirmed')
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('patients.full_name', 'LIKE', "%{$search}%")
+                        ->orWhere('appointments.id', $search);
+                });
+            })
+            ->select(
+                'appointments.id as appointment_id',
+                'patients.id as patient_id',
+                'patients.full_name as patient_name',
+                'patients.contact_number',
+                'doctors.name as doctor_name',
+                'appointments.appointment_date',
+                'appointments.appointment_time',
+                'appointments.status'
+            )
+            ->get();
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $appointments
+        ]);
+    }
+
+public function processCheckIn($id)
+    {
+        $today = Carbon::today()->toDateString();
+
+        $updated = DB::table('appointments')
+            ->where('id', $id)
+            ->where('status', 'Confirmed')
+            ->whereDate('appointment_date', $today)
+            ->update([
+                'status' => 'Waiting',
+                'updated_at' => Carbon::now(),
+            ]);
+
+        if (!$updated) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Appointment not found, not confirmed, or already checked in.'
+            ], 400);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Patient checked in successfully. Added to waiting queue.',
+            'appointment_id' => (int) $id,
+            'new_status' => 'Waiting'
+        ]);
+    }
 
 }

@@ -16,7 +16,6 @@ export default function Dashboard() {
     today_queue: []
   });
   const [loading, setLoading] = useState(true);
-  const [selectedAppt, setSelectedAppt] = useState(null);
 
   useEffect(() => {
     api.get('/web/dashboard')
@@ -49,14 +48,9 @@ export default function Dashboard() {
     return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
   };
 
-  const handleConfirmConsult = () => {
-    setSelectedAppt(null);
-  };
-
   return (
     <div className="min-h-screen bg-[#F8F6F0] text-stone-800 font-sans selection:bg-emerald-200 p-6 md:p-10">
       <div className="max-w-6xl mx-auto space-y-8">
-        
         <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-stone-200 pb-6">
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -163,11 +157,11 @@ export default function Dashboard() {
             <table className="w-full text-left text-sm">
               <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 font-mono text-xs uppercase tracking-wider">
                 <tr>
+                  <th className="px-6 py-3.5 font-semibold">Appt ID</th>
                   <th className="px-6 py-3.5 font-semibold">Time</th>
                   <th className="px-6 py-3.5 font-semibold">Patient</th>
                   <th className="px-6 py-3.5 font-semibold">Doctor</th>
                   <th className="px-6 py-3.5 font-semibold">Status</th>
-                  <th className="px-6 py-3.5 font-semibold text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 text-stone-700">
@@ -186,6 +180,9 @@ export default function Dashboard() {
                 ) : (
                   data.today_queue.map((item) => (
                     <tr key={item.appointment_id} className="hover:bg-stone-50/80 transition-colors">
+                      <td className="px-6 py-4 font-mono text-stone-500">
+                        #{item.appointment_id}
+                      </td>
                       <td className="px-6 py-4 font-mono text-stone-900 font-medium">
                         {formatTime(item.appointment_time)}
                       </td>
@@ -206,14 +203,6 @@ export default function Dashboard() {
                           {item.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={() => setSelectedAppt(item)}
-                          className="bg-emerald-900 hover:bg-emerald-800 text-stone-100 text-xs font-medium px-3.5 py-1.5 rounded-lg transition-colors shadow-2xs"
-                        >
-                          Consult
-                        </button>
-                      </td>
                     </tr>
                   ))
                 )}
@@ -223,62 +212,6 @@ export default function Dashboard() {
         </section>
 
       </div>
-
-      {selectedAppt && (
-        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white border border-stone-200 rounded-2xl shadow-xl max-w-md w-full p-6 text-stone-800">
-            <div className="flex items-center justify-between border-b border-stone-100 pb-4">
-              <h3 className="text-lg font-serif text-stone-900">Start Consultation</h3>
-              <button 
-                onClick={() => setSelectedAppt(null)}
-                className="text-stone-400 hover:text-stone-600 font-mono text-sm"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="py-5 space-y-3">
-              <p className="text-sm text-stone-600">
-                Are you sure you want to begin the consultation session for this patient?
-              </p>
-
-              <div className="bg-[#F8F6F0] p-4 rounded-xl border border-stone-200/80 space-y-2 text-xs font-mono">
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Patient:</span>
-                  <span className="font-semibold text-stone-900">{selectedAppt.patient_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Assigned Doctor:</span>
-                  <span className="font-semibold text-stone-900">{selectedAppt.doctor_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Appointment Time:</span>
-                  <span className="font-semibold text-stone-900">{formatTime(selectedAppt.appointment_time)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-stone-500">Status:</span>
-                  <span className="font-semibold text-stone-900">{selectedAppt.status}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                onClick={() => setSelectedAppt(null)}
-                className="px-4 py-2 text-xs font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmConsult}
-                className="px-4 py-2 text-xs font-medium text-stone-100 bg-emerald-900 hover:bg-emerald-800 rounded-lg transition-colors shadow-2xs"
-              >
-                Confirm & Open Check-up
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

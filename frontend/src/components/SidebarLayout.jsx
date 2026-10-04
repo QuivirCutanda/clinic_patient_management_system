@@ -28,6 +28,11 @@ export default function SidebarLayout() {
       label: 'Appointments',
       allowedRoles: ['Admin', 'Nurse'],
     },
+        {
+      to: '/check-in',
+      label: 'Patient Check-In',
+      allowedRoles: ['Admin', 'Nurse'],
+    },
     {
       to: '/consultations',
       label: 'Consultation Desk',
@@ -46,10 +51,8 @@ export default function SidebarLayout() {
 
   return (
     <div className="flex h-screen bg-[#F8F6F0] text-stone-800 font-sans selection:bg-emerald-200 overflow-hidden">
-      {/* Sidebar Container */}
       <aside className="w-64 bg-stone-900 text-stone-200 flex flex-col justify-between p-6 border-r border-stone-800 shrink-0">
         <div className="space-y-8">
-          {/* Header & User Info */}
           <div className="border-b border-stone-800 pb-5">
             <div className="flex items-center gap-2 mb-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
@@ -65,7 +68,6 @@ export default function SidebarLayout() {
             </p>
           </div>
 
-          {/* Navigation Items */}
           <nav className="flex flex-col gap-1">
             {visibleLinks.map((link) => {
               const isActive = location.pathname === link.to;
@@ -89,7 +91,6 @@ export default function SidebarLayout() {
           </nav>
         </div>
 
-        {/* Logout Action */}
         <div className="pt-6 border-t border-stone-800">
           <button
             onClick={handleLogout}
@@ -100,7 +101,6 @@ export default function SidebarLayout() {
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import SidebarLayout from './components/SidebarLayout';
 import Dashboard from './pages/Dashboard';
+import PatientCheckIn from './pages/CheckIn';
 import Patients from './pages/Patients';
 import Appointments from './pages/Appointments';
 import Consultations from './pages/Consultations';
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/" element={<Login />} />
         <Route element={<SidebarLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/check-in" element={<PatientCheckIn />} />
           <Route path="/patients" element={<Patients />} />
           <Route path="/appointments" element={<Appointments />} />
           <Route path="/consultations" element={<Consultations />} />

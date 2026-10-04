@@ -28,6 +28,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/web/consultations', [WebApiController::class, 'submitConsultation']);
     Route::post('/web/billing', [WebApiController::class, 'processBill']);
     Route::get('/web/doctors', [WebApiController::class, 'getDoctors']);
+    Route::get('/web/check-in/search', [WebApiController::class, 'searchCheckIn']);
+    Route::patch('/web/appointments/{id}/check-in', [WebApiController::class, 'processCheckIn']);
+
 });
 
 // Protected Mobile Routes (Patients)

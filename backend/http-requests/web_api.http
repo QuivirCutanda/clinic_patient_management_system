@@ -124,17 +124,17 @@ Accept: application/json
 ### 10. SUBMIT DOCTOR CONSULTATION CHECK-UP
 # @name submitConsultation
 POST {{baseUrl}}/web/consultations
-Authorization: Bearer {{webAuthToken}}
+Authorization: Bearer {{{{webAuthToken}}}}
 Content-Type: application/json
 Accept: application/json
 
 {
     "appointment_id": 1,
     "patient_id": 1,
-    "doctor_id": 1,
-    "vitals": "BP: 120/80, Temp: 36.8°C, HR: 72 bpm",
-    "diagnosis": "Acute Tonsillitis",
-    "prescription_list": "Amoxicillin 500mg, 3x a day for 7 days\nParacetamol 500mg every 4 hours as needed for fever"
+    "doctor_id": 2,
+    "vitals": "BP: 120/80 mmHg, Temp: 36.6°C, HR: 72 bpm, Weight: 68 kg",
+    "diagnosis": "Acute Bronchitis",
+    "prescription_list": "Amoxicillin 500mg - 1 capsule every 8 hours for 7 days\nParacetamol 500mg - 1 tablet as needed for fever"
 }
 
 ###
@@ -152,3 +152,19 @@ Accept: application/json
     "fee_amount": 500.00,
     "payment_method": "Cash"
 }
+
+###
+
+# @name searchCheckIn
+GET {{baseUrl}}/web/check-in/search?query=Jhon
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
+
+# @name processCheckIn
+PATCH {{baseUrl}}/web/appointments/4/check-in
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
