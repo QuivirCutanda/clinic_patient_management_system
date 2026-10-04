@@ -35,31 +35,64 @@ class WebApiController extends Controller
         ]);
     }
 
-    public function dashboard()
-    {
-        $today = Carbon::today()->toDateString();
+public function dashboard(Request $request)
+{
+    $today = Carbon::today()->toDateString();
 
-        $totalMoney = DB::table('billing')
-            ->where('status', 'Paid')
-            ->whereDate('payment_date', $today)
-            ->sum('fee_amount');
+    $totalMoney = DB::table('billing')
+        ->where('status', 'Paid')
+        ->whereDate('payment_date', $today)
+        ->sum('fee_amount');
 
-        $patientsWaiting = DB::table('appointments')
-            ->whereIn('status', ['Pending', 'Confirmed'])
-            ->whereDate('appointment_date', $today)
-            ->count();
+    $patientsWaiting = DB::table('appointments')
+        ->whereIn('status', ['Pending', 'Confirmed'])
+        ->whereDate('appointment_date', $today)
+        ->count();
 
-        $activeDoctors = DB::table('appointments')
-            ->whereDate('appointment_date', $today)
-            ->distinct('doctor_id')
-            ->count('doctor_id');
+    $activeDoctors = DB::table('appointments')
+        ->whereDate('appointment_date', $today)
+        ->distinct('doctor_id')
+        ->count('doctor_id');
 
-        return response()->json([
-            'total_money_collected_today' => (float)$totalMoney,
+    $paymentBreakdown = DB::table('billing')
+        ->where('status', 'Paid')
+        ->whereDate('payment_date', $today)
+        ->select('payment_method', DB::raw('SUM(fee_amount) as total'))
+        ->groupBy('payment_method')
+        ->pluck('total', 'payment_method');
+
+    $todayQueue = DB::table('appointments')
+        ->join('patients', 'appointments.patient_id', '=', 'patients.id')
+        ->join('users as doctors', 'appointments.doctor_id', '=', 'doctors.id')
+        ->whereDate('appointments.appointment_date', $today)
+        ->select(
+            'appointments.id as appointment_id',
+            'patients.full_name as patient_name',
+            'doctors.name as doctor_name',
+            'appointments.appointment_time',
+            'appointments.status'
+        )
+        ->orderBy('appointments.appointment_time', 'asc')
+        ->get();
+
+    $completedToday = DB::table('consultations')
+        ->whereDate('created_at', $today)
+        ->count();
+
+    return response()->json([
+        'summary' => [
+            'total_money_collected_today' => (float) $totalMoney,
             'patients_waiting' => $patientsWaiting,
             'active_doctors' => $activeDoctors,
-        ]);
-    }
+            'completed_today' => $completedToday,
+        ],
+        'financial_breakdown' => [
+            'cash' => (float) ($paymentBreakdown['Cash'] ?? 0),
+            'digital' => (float) ($paymentBreakdown['Digital'] ?? 0),
+        ],
+        'today_queue' => $todayQueue,
+    ]);
+}
 
     public function registerPatient(Request $request)
     {
@@ -346,5 +379,17 @@ public function submitConsultation(Request $request)
         'new_status' => $request->status
     ]);
 }
+
+public function getDoctors()
+{
+    $doctors = DB::table('users')
+        ->where('role', 'Doctor')
+        ->select('id', 'name', 'email', 'role')
+        ->get();
+
+    return response()->json($doctors);
+}
+
+
 
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 
 export default function Consultations() {
@@ -11,11 +11,82 @@ export default function Consultations() {
     prescription_list: ''
   });
 
+  const [patientSearch, setPatientSearch] = useState('');
+  const [doctorSearch, setDoctorSearch] = useState('');
+  const [patientSuggestions, setPatientSuggestions] = useState([]);
+  const [doctorSuggestions, setDoctorSuggestions] = useState([]);
+  const [showPatientList, setShowPatientList] = useState(false);
+  const [showDoctorList, setShowDoctorList] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modal, setModal] = useState({ isOpen: false, type: '', message: '' });
 
+  const patientRef = useRef(null);
+  const doctorRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (patientRef.current && !patientRef.current.contains(e.target)) {
+        setShowPatientList(false);
+      }
+      if (doctorRef.current && !doctorRef.current.contains(e.target)) {
+        setShowDoctorList(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (!patientSearch.trim()) {
+      setPatientSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get(`/web/patients?search=${encodeURIComponent(patientSearch)}`);
+        setPatientSuggestions(res.data.data || res.data || []);
+      } catch (err) {
+        setPatientSuggestions([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [patientSearch]);
+
+  useEffect(() => {
+    if (!doctorSearch.trim()) {
+      setDoctorSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get(`/web/doctors?search=${encodeURIComponent(doctorSearch)}`);
+        setDoctorSuggestions(res.data.data || res.data || []);
+      } catch (err) {
+        setDoctorSuggestions([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [doctorSearch]);
+
   const closeModal = () => {
     setModal({ isOpen: false, type: '', message: '' });
+  };
+
+  const getFullName = (item) => {
+    if (!item) return '';
+    if (typeof item === 'string') return item;
+    const target = item.user || item.patient || item.doctor || item;
+    if (item.full_name) return item.full_name;
+    if (item.patient_name) return item.patient_name;
+    if (item.doctor_name) return item.doctor_name;
+    if (target.full_name) return target.full_name;
+    if (target.name) return target.name;
+    const firstName = target.first_name || target.fname || '';
+    const lastName = target.last_name || target.lname || '';
+    const combined = `${firstName} ${lastName}`.trim();
+    if (combined) return combined;
+    return item.name || '';
   };
 
   const handleSubmit = async (e) => {
@@ -39,6 +110,8 @@ export default function Consultations() {
         diagnosis: '',
         prescription_list: ''
       });
+      setPatientSearch('');
+      setDoctorSearch('');
     } catch (err) {
       const errorMessage =
         err.response?.data?.message ||
@@ -57,7 +130,6 @@ export default function Consultations() {
   return (
     <div className="min-h-screen bg-[#F8F6F0] text-stone-800 font-sans selection:bg-emerald-200 p-6 md:p-10 relative">
       <div className="max-w-2xl mx-auto space-y-8">
-        
         <header className="border-b border-stone-200 pb-6">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-emerald-600" />
@@ -85,32 +157,86 @@ export default function Consultations() {
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 relative" ref={patientRef}>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600">
-                Patient ID
+                Patient
               </label>
               <input
-                type="number"
-                placeholder="e.g. 1042"
-                value={form.patient_id}
-                onChange={(e) => setForm({ ...form, patient_id: e.target.value })}
-                className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs font-mono"
+                type="text"
+                placeholder="Type patient name or ID..."
+                value={patientSearch}
+                onFocus={() => setShowPatientList(true)}
+                onChange={(e) => {
+                  setPatientSearch(e.target.value);
+                  setForm({ ...form, patient_id: '' });
+                  setShowPatientList(true);
+                }}
+                className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs"
                 required
               />
+              {showPatientList && patientSuggestions.length > 0 && (
+                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg max-h-48 overflow-y-auto text-xs">
+                  {patientSuggestions.map((p) => {
+                    const id = p.id || p.patient_id || p.user_id;
+                    const fullName = getFullName(p) || `Patient #${id}`;
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => {
+                          setForm({ ...form, patient_id: id });
+                          setPatientSearch(`${fullName} (ID: ${id})`);
+                          setShowPatientList(false);
+                        }}
+                        className="px-3 py-2 hover:bg-emerald-50 cursor-pointer text-stone-700 hover:text-emerald-900 border-b border-stone-100 last:border-none flex justify-between items-center"
+                      >
+                        <span className="font-medium text-stone-900">{fullName}</span>
+                        <span className="text-[10px] text-stone-500 font-mono">ID: {id}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 relative" ref={doctorRef}>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600">
-                Doctor ID
+                Doctor
               </label>
               <input
-                type="number"
-                placeholder="e.g. 12"
-                value={form.doctor_id}
-                onChange={(e) => setForm({ ...form, doctor_id: e.target.value })}
-                className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs font-mono"
+                type="text"
+                placeholder="Type doctor name or ID..."
+                value={doctorSearch}
+                onFocus={() => setShowDoctorList(true)}
+                onChange={(e) => {
+                  setDoctorSearch(e.target.value);
+                  setForm({ ...form, doctor_id: '' });
+                  setShowDoctorList(true);
+                }}
+                className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs"
                 required
               />
+              {showDoctorList && doctorSuggestions.length > 0 && (
+                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg max-h-48 overflow-y-auto text-xs">
+                  {doctorSuggestions.map((d) => {
+                    const id = d.id || d.doctor_id || d.user_id;
+                    const fullName = getFullName(d) || `Doctor #${id}`;
+                    return (
+                      <div
+                        key={id}
+                        onClick={() => {
+                          setForm({ ...form, doctor_id: id });
+                          setDoctorSearch(`${fullName} (ID: ${id})`);
+                          setShowDoctorList(false);
+                        }}
+                        className="px-3 py-2 hover:bg-emerald-50 cursor-pointer text-stone-700 hover:text-emerald-900 border-b border-stone-100 last:border-none flex justify-between items-center"
+                      >
+                        <span className="font-medium text-stone-900">{fullName}</span>
+                        <span className="text-[10px] text-stone-500 font-mono">ID: {id}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -172,14 +298,11 @@ export default function Consultations() {
             </button>
           </div>
         </form>
-
       </div>
 
-      {/* Modal Backdrop & Dialog */}
       {modal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs">
           <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-xl border border-stone-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            
             <div className="flex items-center gap-3">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
@@ -218,7 +341,6 @@ export default function Consultations() {
                 Dismiss
               </button>
             </div>
-
           </div>
         </div>
       )}

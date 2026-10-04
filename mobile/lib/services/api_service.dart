@@ -26,4 +26,10 @@ class ApiService {
     final headers = await _getHeaders();
     return await http.get(url, headers: headers);
   }
+
+  static Future<http.Response> put(String endpoint, Map<String, dynamic> body) async {
+    final url = Uri.parse('$baseUrl$endpoint');
+    final headers = await _getHeaders();
+    return await http.put(url, headers: headers, body: jsonEncode(body));
+  }
 }
