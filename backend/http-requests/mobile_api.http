@@ -29,9 +29,35 @@ Accept: application/json
 }
 
 ###
-
 ###GET THE TOKEN MULA SA LOGIN RESPONSE
 @authToken = {{patientLogin.response.body.token}}
+
+### Dashboard
+# @name getDashboard
+GET {{baseUrl}}/mobile/dashboard
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+###
+
+# @name getPendingAppointments
+GET {{baseUrl}}/mobile/appointments/pending
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+###
+
+# @name getConfirmedAppointments
+GET {{baseUrl}}/mobile/appointments/confirmed
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+###
+
+# @name getHistoryAppointments
+GET {{baseUrl}}/mobile/appointments/history
+Authorization: Bearer {{authToken}}
+Accept: application/json
 
 ###
 

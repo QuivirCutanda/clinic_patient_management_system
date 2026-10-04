@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'auth_screen.dart';
-import 'book_visit_tab.dart';
+import 'home_tab.dart';
 import 'my_records_tab.dart';
 import 'my_bills_tab.dart';
 import 'profile_tab.dart';
@@ -26,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const stone300 = Color(0xFFD6D3D1);
 
   final List<Widget> tabs = const [
-    BookVisitTab(),
+    HomeTab(),
     MyRecordsTab(),
     MyBillsTab(),
     ProfileTab(),
@@ -234,13 +234,13 @@ class _HomeScreenState extends State<HomeScreen> {
             BottomNavigationBarItem(
               icon: Padding(
                 padding: EdgeInsets.only(bottom: 4),
-                child: Icon(Icons.calendar_today_outlined, size: 20),
+                child: Icon(Icons.home_outlined, size: 20),
               ),
               activeIcon: Padding(
                 padding: EdgeInsets.only(bottom: 4),
-                child: Icon(Icons.calendar_month, size: 20),
+                child: Icon(Icons.home_rounded, size: 20),
               ),
-              label: 'Book Visit',
+              label: 'Home',
             ),
             BottomNavigationBarItem(
               icon: Padding(
@@ -264,7 +264,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               label: 'My Bills',
             ),
-            // Added the Profile tab bar item here
             BottomNavigationBarItem(
               icon: Padding(
                 padding: EdgeInsets.only(bottom: 4),

@@ -55,6 +55,53 @@ class MobileApiController extends Controller
         ]);
     }
 
+
+    public function dashboard(Request $request)
+{
+    $patient = $request->user();
+    $patientId = $patient->id;
+
+    $pendingCount = DB::table('appointments')
+        ->where('patient_id', $patientId)
+        ->where('status', 'Pending')
+        ->count();
+
+    $confirmedCount = DB::table('appointments')
+        ->where('patient_id', $patientId)
+        ->whereIn('status', ['Confirmed', 'Waiting'])
+        ->count();
+
+    $historyCount = DB::table('appointments')
+        ->where('patient_id', $patientId)
+        ->whereIn('status', ['Completed', 'Cancelled'])
+        ->count();
+
+    $nextAppointment = DB::table('appointments')
+        ->join('users', 'appointments.doctor_id', '=', 'users.id')
+        ->where('appointments.patient_id', $patientId)
+        ->whereIn('appointments.status', ['Confirmed', 'Waiting'])
+        ->where('appointments.appointment_date', '>=', Carbon::today()->toDateString())
+        ->select(
+            'appointments.id as appointment_id',
+            'users.name as doctor_name',
+            'appointments.appointment_date',
+            'appointments.appointment_time',
+            'appointments.status'
+        )
+        ->orderBy('appointments.appointment_date', 'asc')
+        ->orderBy('appointments.appointment_time', 'asc')
+        ->first();
+
+    return response()->json([
+        'patient_name' => $patient->full_name,
+        'counts' => [
+            'pending_count' => $pendingCount,
+            'confirmed_count' => $confirmedCount,
+            'history_count' => $historyCount,
+        ],
+        'next_appointment' => $nextAppointment,
+    ]);
+}
     public function getDoctors()
     {
         $doctors = DB::table('users')
@@ -115,7 +162,9 @@ class MobileApiController extends Controller
         return response()->json(['status' => 'success'], 201);
     }
 
-public function getRecords(Request $request)
+
+
+    public function getRecords(Request $request)
 {
     $patientId = $request->user()->id;
 
@@ -202,4 +251,82 @@ public function getRecords(Request $request)
         'patient' => $patient
     ]);
     }
+
+    public function getPendingAppointments(Request $request)
+{
+    $patientId = $request->user()->id;
+
+    $appointments = DB::table('appointments')
+        ->join('users', 'appointments.doctor_id', '=', 'users.id')
+        ->where('appointments.patient_id', $patientId)
+        ->where('appointments.status', 'Pending')
+        ->select(
+            'appointments.id as appointment_id',
+            'appointments.patient_id',
+            'appointments.doctor_id',
+            'users.name as doctor_name',
+            'appointments.appointment_date',
+            'appointments.appointment_time',
+            'appointments.status',
+            'appointments.created_at',
+            'appointments.updated_at'
+        )
+        ->orderBy('appointments.appointment_date', 'asc')
+        ->orderBy('appointments.appointment_time', 'asc')
+        ->get();
+
+    return response()->json($appointments);
+}
+
+public function getConfirmedAppointments(Request $request)
+{
+    $patientId = $request->user()->id;
+
+    $appointments = DB::table('appointments')
+        ->join('users', 'appointments.doctor_id', '=', 'users.id')
+        ->where('appointments.patient_id', $patientId)
+        ->whereIn('appointments.status', ['Confirmed', 'Waiting'])
+        ->select(
+            'appointments.id as appointment_id',
+            'appointments.patient_id',
+            'appointments.doctor_id',
+            'users.name as doctor_name',
+            'appointments.appointment_date',
+            'appointments.appointment_time',
+            'appointments.status',
+            'appointments.created_at',
+            'appointments.updated_at'
+        )
+        ->orderBy('appointments.appointment_date', 'asc')
+        ->orderBy('appointments.appointment_time', 'asc')
+        ->get();
+
+    return response()->json($appointments);
+}
+
+public function getHistoryAppointments(Request $request)
+{
+    $patientId = $request->user()->id;
+
+    $appointments = DB::table('appointments')
+        ->join('users', 'appointments.doctor_id', '=', 'users.id')
+        ->where('appointments.patient_id', $patientId)
+        ->whereIn('appointments.status', ['Completed', 'Cancelled'])
+        ->select(
+            'appointments.id as appointment_id',
+            'appointments.patient_id',
+            'appointments.doctor_id',
+            'users.name as doctor_name',
+            'appointments.appointment_date',
+            'appointments.appointment_time',
+            'appointments.status',
+            'appointments.created_at',
+            'appointments.updated_at'
+        )
+        ->orderBy('appointments.appointment_date', 'desc')
+        ->orderBy('appointments.appointment_time', 'desc')
+        ->get();
+
+    return response()->json($appointments);
+}
 }

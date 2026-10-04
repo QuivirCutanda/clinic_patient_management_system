@@ -35,6 +35,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // Protected Mobile Routes (Patients)
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/mobile/dashboard', [MobileApiController::class, 'dashboard']);
     Route::get('/mobile/doctors', [MobileApiController::class, 'getDoctors']);
     Route::post('/mobile/appointments', [MobileApiController::class, 'bookAppointment']);
     Route::get('/mobile/appointments', [MobileApiController::class, 'getAppointments']);
@@ -42,5 +43,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mobile/my-bills', [MobileApiController::class, 'getBills']);
     Route::get('/mobile/patient-info', [MobileApiController::class, 'getPatientInfo']);
     Route::put('/mobile/patient-info', [MobileApiController::class, 'updatePatientInfo']); 
+    Route::get('/mobile/appointments/pending', [MobileApiController::class, 'getPendingAppointments']);
+    Route::get('/mobile/appointments/confirmed', [MobileApiController::class, 'getConfirmedAppointments']);
+    Route::get('/mobile/appointments/history', [MobileApiController::class, 'getHistoryAppointments']);
 
 });
