@@ -1,5 +1,5 @@
 @baseUrl = http://localhost:8000/api
-@appointment_id = 1
+@appointment_id = 4
 
 ### 1. WEB APP STAFF LOGIN (Doctor, Nurse, or Cashier)
 # @name webLogin
@@ -21,6 +21,12 @@ Accept: application/json
 ### 2. GET DASHBOARD METRICS (Top Bar Analytics)
 # @name getDashboard
 GET {{baseUrl}}/web/dashboard
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
+
+GET {{baseUrl}}/web/doctors
 Authorization: Bearer {{webAuthToken}}
 Accept: application/json
 

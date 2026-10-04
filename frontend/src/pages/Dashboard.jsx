@@ -2,19 +2,56 @@ import React, { useEffect, useState } from 'react';
 import api from '../api';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({ 
-    total_money_collected_today: 0, 
-    patients_waiting: 0, 
-    active_doctors: 0 
+  const [data, setData] = useState({
+    summary: {
+      total_money_collected_today: 0,
+      patients_waiting: 0,
+      active_doctors: 0,
+      completed_today: 0
+    },
+    financial_breakdown: {
+      cash: 0,
+      digital: 0
+    },
+    today_queue: []
   });
   const [loading, setLoading] = useState(true);
+  const [selectedAppt, setSelectedAppt] = useState(null);
 
   useEffect(() => {
     api.get('/web/dashboard')
-      .then((res) => setStats(res.data))
+      .then((res) => {
+        if (res.data) {
+          setData({
+            summary: res.data.summary || {
+              total_money_collected_today: res.data.total_money_collected_today || 0,
+              patients_waiting: res.data.patients_waiting || 0,
+              active_doctors: res.data.active_doctors || 0,
+              completed_today: 0
+            },
+            financial_breakdown: res.data.financial_breakdown || { cash: 0, digital: 0 },
+            today_queue: res.data.today_queue || []
+          });
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
+
+  const formatTime = (timeStr) => {
+    if (!timeStr) return '—';
+    const parts = timeStr.split(':');
+    if (parts.length < 2) return timeStr;
+    let hours = parseInt(parts[0], 10);
+    const minutes = parts[1];
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+  };
+
+  const handleConfirmConsult = () => {
+    setSelectedAppt(null);
+  };
 
   return (
     <div className="min-h-screen bg-[#F8F6F0] text-stone-800 font-sans selection:bg-emerald-200 p-6 md:p-10">
@@ -36,7 +73,7 @@ export default function Dashboard() {
           </div>
         </header>
 
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
           <div className="bg-white p-6 rounded-xl border border-stone-200/90 shadow-2xs flex flex-col justify-between relative overflow-hidden">
             <div>
               <div className="flex items-center justify-between">
@@ -46,12 +83,12 @@ export default function Dashboard() {
                 </span>
               </div>
               <p className="mt-4 text-3xl font-serif text-stone-900 tracking-tight">
-                {loading ? '—' : `₱${stats.total_money_collected_today.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                {loading ? '—' : `₱${data.summary.total_money_collected_today.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </p>
             </div>
-            <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400 font-mono">
-              <span>Daily ledger</span>
-              <span>Updated live</span>
+            <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-500 font-mono">
+              <span>Cash: ₱{data.financial_breakdown.cash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <span>Digital: ₱{data.financial_breakdown.digital.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </div>
 
@@ -64,12 +101,30 @@ export default function Dashboard() {
                 </span>
               </div>
               <p className="mt-4 text-3xl font-serif text-stone-900 tracking-tight">
-                {loading ? '—' : stats.patients_waiting}
+                {loading ? '—' : data.summary.patients_waiting}
               </p>
             </div>
             <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400 font-mono">
               <span>Lobby count</span>
               <span>In triage / waiting</span>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl border border-stone-200/90 shadow-2xs flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-stone-500">Completed Today</span>
+                <span className="text-xs font-mono text-stone-700 bg-stone-100 px-2 py-0.5 rounded border border-stone-300">
+                  Done
+                </span>
+              </div>
+              <p className="mt-4 text-3xl font-serif text-stone-900 tracking-tight">
+                {loading ? '—' : data.summary.completed_today}
+              </p>
+            </div>
+            <div className="mt-6 pt-4 border-t border-stone-100 flex items-center justify-between text-[11px] text-stone-400 font-mono">
+              <span>Consulted</span>
+              <span>Cleared today</span>
             </div>
           </div>
 
@@ -82,7 +137,7 @@ export default function Dashboard() {
                 </span>
               </div>
               <p className="mt-4 text-3xl font-serif tracking-tight">
-                {loading ? '—' : stats.active_doctors}
+                {loading ? '—' : data.summary.active_doctors}
               </p>
             </div>
             <div className="z-10 mt-6 pt-4 border-t border-emerald-800/80 flex items-center justify-between text-[11px] text-emerald-300 font-mono">
@@ -93,7 +148,137 @@ export default function Dashboard() {
           </div>
         </section>
 
+        <section className="bg-white rounded-xl border border-stone-200/90 shadow-2xs overflow-hidden">
+          <div className="p-6 border-b border-stone-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-serif text-stone-900 tracking-tight">Today's Queue</h2>
+              <p className="text-xs text-stone-500 mt-1">Scheduled appointments and active patient lobby status</p>
+            </div>
+            <span className="text-xs font-mono bg-stone-100 text-stone-600 px-2.5 py-1 rounded border border-stone-200">
+              {data.today_queue.length} Total
+            </span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-stone-50 border-b border-stone-200 text-stone-500 font-mono text-xs uppercase tracking-wider">
+                <tr>
+                  <th className="px-6 py-3.5 font-semibold">Time</th>
+                  <th className="px-6 py-3.5 font-semibold">Patient</th>
+                  <th className="px-6 py-3.5 font-semibold">Doctor</th>
+                  <th className="px-6 py-3.5 font-semibold">Status</th>
+                  <th className="px-6 py-3.5 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-stone-100 text-stone-700">
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center text-stone-400 font-mono text-xs">
+                      Loading schedule...
+                    </td>
+                  </tr>
+                ) : data.today_queue.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-8 text-center text-stone-400 font-mono text-xs">
+                      No patients in queue today
+                    </td>
+                  </tr>
+                ) : (
+                  data.today_queue.map((item) => (
+                    <tr key={item.appointment_id} className="hover:bg-stone-50/80 transition-colors">
+                      <td className="px-6 py-4 font-mono text-stone-900 font-medium">
+                        {formatTime(item.appointment_time)}
+                      </td>
+                      <td className="px-6 py-4 font-medium text-stone-900">
+                        {item.patient_name}
+                      </td>
+                      <td className="px-6 py-4 text-stone-600">
+                        {item.doctor_name}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-mono border ${
+                          item.status === 'Confirmed'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : item.status === 'Pending'
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : 'bg-stone-100 text-stone-600 border-stone-200'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => setSelectedAppt(item)}
+                          className="bg-emerald-900 hover:bg-emerald-800 text-stone-100 text-xs font-medium px-3.5 py-1.5 rounded-lg transition-colors shadow-2xs"
+                        >
+                          Consult
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
       </div>
+
+      {selectedAppt && (
+        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-stone-200 rounded-2xl shadow-xl max-w-md w-full p-6 text-stone-800">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-4">
+              <h3 className="text-lg font-serif text-stone-900">Start Consultation</h3>
+              <button 
+                onClick={() => setSelectedAppt(null)}
+                className="text-stone-400 hover:text-stone-600 font-mono text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="py-5 space-y-3">
+              <p className="text-sm text-stone-600">
+                Are you sure you want to begin the consultation session for this patient?
+              </p>
+
+              <div className="bg-[#F8F6F0] p-4 rounded-xl border border-stone-200/80 space-y-2 text-xs font-mono">
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Patient:</span>
+                  <span className="font-semibold text-stone-900">{selectedAppt.patient_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Assigned Doctor:</span>
+                  <span className="font-semibold text-stone-900">{selectedAppt.doctor_name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Appointment Time:</span>
+                  <span className="font-semibold text-stone-900">{formatTime(selectedAppt.appointment_time)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-stone-500">Status:</span>
+                  <span className="font-semibold text-stone-900">{selectedAppt.status}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setSelectedAppt(null)}
+                className="px-4 py-2 text-xs font-medium text-stone-600 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmConsult}
+                className="px-4 py-2 text-xs font-medium text-stone-100 bg-emerald-900 hover:bg-emerald-800 rounded-lg transition-colors shadow-2xs"
+              >
+                Confirm & Open Check-up
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

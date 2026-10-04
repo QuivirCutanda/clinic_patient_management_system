@@ -23,6 +23,14 @@ export default function Appointments() {
   
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
+  const [doctors, setDoctors] = useState([]);
+  const [doctorSearch, setDoctorSearch] = useState('');
+  const [showDoctorDropdown, setShowDoctorDropdown] = useState(false);
+
+  const [patientSearch, setPatientSearch] = useState('');
+  const [patientsList, setPatientsList] = useState([]);
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+
   const formatTime = (timeString) => {
     if (!timeString) return 'N/A';
     const parts = timeString.split(':');
@@ -58,9 +66,36 @@ export default function Appointments() {
     }
   };
 
+  const fetchDoctors = async () => {
+    try {
+      const res = await api.get('/web/doctors');
+      setDoctors(res.data || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => { 
     fetchAppointments(selectedDate); 
+    fetchDoctors();
   }, [selectedDate]);
+
+  useEffect(() => {
+    if (!patientSearch.trim()) {
+      setPatientsList([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.get(`/web/patients?search=${encodeURIComponent(patientSearch)}`);
+        setPatientsList(res.data || []);
+      } catch (err) {
+        console.error(err);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [patientSearch]);
 
   const handleAdd = async (e) => {
     e.preventDefault();
@@ -83,6 +118,8 @@ export default function Appointments() {
         appointment_date: selectedDate, 
         appointment_time: '' 
       });
+      setPatientSearch('');
+      setDoctorSearch('');
 
       setTimeout(() => {
         setIsModalOpen(false);
@@ -126,6 +163,11 @@ export default function Appointments() {
     }
   };
 
+  const filteredDoctors = doctors.filter(d => 
+    d.name?.toLowerCase().includes(doctorSearch.toLowerCase()) || 
+    d.email?.toLowerCase().includes(doctorSearch.toLowerCase())
+  );
+
   return (
     <div className="min-h-screen bg-[#F8F6F0] text-stone-800 font-sans selection:bg-emerald-200 p-6 md:p-10">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -148,10 +190,12 @@ export default function Appointments() {
             />
             <button
               onClick={() => {
-                setForm(prev => ({ ...prev, appointment_date: selectedDate }));
+                setForm(prev => ({ ...prev, appointment_date: selectedDate, patient_id: '', doctor_id: '' }));
+                setPatientSearch('');
+                setDoctorSearch('');
                 setIsModalOpen(true);
               }}
-              className="text-xs font-medium bg-emerald-900 text-stone-50 px-4 py-2.5 rounded-lg hover:bg-emerald-950 transition shadow-xs flex items-center gap-2"
+              className="text-xs font-medium bg-emerald-900 text-stone-50 px-4 py-2.5 rounded-lg hover:bg-emerald-950 transition shadow-xs flex items-center gap-2 cursor-pointer"
             >
               <span className="text-amber-400">✦</span> New Booking
             </button>
@@ -222,27 +266,24 @@ export default function Appointments() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <div className="flex items-center justify-end gap-3">
-                            {/* Show Approve only if pending */}
                             {!isConfirmed && !isCancelled && (
                               <button
                                 onClick={() => handleActionClick('confirm', a)}
-                                className="text-emerald-700 hover:text-emerald-900 transition text-[11px] font-mono hover:underline font-medium"
+                                className="text-emerald-700 hover:text-emerald-900 transition text-[11px] font-mono hover:underline font-medium cursor-pointer"
                               >
                                 Approve
                               </button>
                             )}
 
-                            {/* Show Cancel Booking ONLY if pending (hidden when confirmed or cancelled) */}
                             {!isConfirmed && !isCancelled && (
                               <button
                                 onClick={() => handleActionClick('cancel', a)}
-                                className="text-stone-400 hover:text-red-700 transition text-[11px] font-mono hover:underline"
+                                className="text-stone-400 hover:text-red-700 transition text-[11px] font-mono hover:underline cursor-pointer"
                               >
                                 Cancel Booking
                               </button>
                             )}
 
-                            {/* Optional indicator when no actions remain */}
                             {(isConfirmed || isCancelled) && (
                               <span className="text-stone-300 font-mono text-[11px]">—</span>
                             )}
@@ -259,10 +300,9 @@ export default function Appointments() {
 
       </div>
 
-      {/* Booking Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-stone-200 rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white border border-stone-200 rounded-xl shadow-xl w-full max-w-md overflow-visible animate-in fade-in zoom-in-95 duration-150">
             
             <div className="px-6 py-4 border-b border-stone-100 bg-stone-50/50 flex justify-between items-center">
               <div>
@@ -271,7 +311,7 @@ export default function Appointments() {
               </div>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="text-stone-400 hover:text-stone-600 text-lg font-mono p-1"
+                className="text-stone-400 hover:text-stone-600 text-lg font-mono p-1 cursor-pointer"
               >
                 ✕
               </button>
@@ -292,32 +332,78 @@ export default function Appointments() {
               )}
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
+                <div className="space-y-1 relative">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600">
-                    Patient ID
+                    Patient
                   </label>
                   <input
-                    type="number"
-                    placeholder="e.g. 1042"
-                    value={form.patient_id}
-                    onChange={(e) => setForm({ ...form, patient_id: e.target.value })}
+                    type="text"
+                    placeholder="Search patient..."
+                    value={patientSearch}
+                    onChange={(e) => {
+                      setPatientSearch(e.target.value);
+                      setForm(prev => ({ ...prev, patient_id: '' }));
+                      setShowPatientDropdown(true);
+                    }}
+                    onFocus={() => setShowPatientDropdown(true)}
                     className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs font-mono"
                     required
                   />
+                  {showPatientDropdown && patientsList.length > 0 && (
+                    <ul className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-lg shadow-lg max-h-40 overflow-y-auto divide-y divide-stone-100 text-xs">
+                      {patientsList.map((p) => (
+                        <li
+                          key={p.id}
+                          onClick={() => {
+                            setForm(prev => ({ ...prev, patient_id: p.id }));
+                            setPatientSearch(p.full_name ? `${p.full_name}` : `Patient #${p.id}`);
+                            setShowPatientDropdown(false);
+                          }}
+                          className="px-3 py-2 hover:bg-stone-50 cursor-pointer flex justify-between items-center"
+                        >
+                          <span className="font-serif text-stone-900">{p.full_name || 'Unnamed'}</span>
+                          <span className="font-mono text-stone-400 text-[10px]">ID: {p.id}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1 relative">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600">
-                    Doctor ID
+                    Doctor
                   </label>
                   <input
-                    type="number"
-                    placeholder="e.g. 12"
-                    value={form.doctor_id}
-                    onChange={(e) => setForm({ ...form, doctor_id: e.target.value })}
+                    type="text"
+                    placeholder="Search doctor..."
+                    value={doctorSearch}
+                    onChange={(e) => {
+                      setDoctorSearch(e.target.value);
+                      setForm(prev => ({ ...prev, doctor_id: '' }));
+                      setShowDoctorDropdown(true);
+                    }}
+                    onFocus={() => setShowDoctorDropdown(true)}
                     className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs font-mono"
                     required
                   />
+                  {showDoctorDropdown && filteredDoctors.length > 0 && (
+                    <ul className="absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-stone-200 rounded-lg shadow-lg max-h-40 overflow-y-auto divide-y divide-stone-100 text-xs">
+                      {filteredDoctors.map((d) => (
+                        <li
+                          key={d.id}
+                          onClick={() => {
+                            setForm(prev => ({ ...prev, doctor_id: d.id }));
+                            setDoctorSearch(d.name || `Doctor #${d.id}`);
+                            setShowDoctorDropdown(false);
+                          }}
+                          className="px-3 py-2 hover:bg-stone-50 cursor-pointer flex justify-between items-center"
+                        >
+                          <span className="text-stone-900 font-medium">{d.name}</span>
+                          <span className="font-mono text-stone-400 text-[10px]">ID: {d.id}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
 
@@ -353,14 +439,14 @@ export default function Appointments() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="text-xs font-medium text-stone-600 hover:text-stone-900 px-4 py-2 rounded-lg transition"
+                  className="text-xs font-medium text-stone-600 hover:text-stone-900 px-4 py-2 rounded-lg transition cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="text-xs font-medium bg-emerald-900 text-stone-50 px-4 py-2 rounded-lg hover:bg-emerald-950 transition shadow-xs flex items-center gap-2 disabled:opacity-70"
+                  className="text-xs font-medium bg-emerald-900 text-stone-50 px-4 py-2 rounded-lg hover:bg-emerald-950 transition shadow-xs flex items-center gap-2 disabled:opacity-70 cursor-pointer"
                 >
                   {isSubmitting ? (
                     <span className="inline-block w-4 h-4 border-2 border-stone-100 border-t-transparent rounded-full animate-spin" />
@@ -375,7 +461,6 @@ export default function Appointments() {
         </div>
       )}
 
-      {/* Confirmation Modal for Approve / Cancel */}
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-50 bg-stone-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white border border-stone-200 rounded-xl shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-150 p-6 space-y-4">
@@ -397,7 +482,7 @@ export default function Appointments() {
               <button
                 type="button"
                 onClick={() => setConfirmModal({ isOpen: false, type: null, appointment: null })}
-                className="text-xs font-medium text-stone-600 hover:text-stone-900 px-4 py-2 rounded-lg transition"
+                className="text-xs font-medium text-stone-600 hover:text-stone-900 px-4 py-2 rounded-lg transition cursor-pointer"
               >
                 Go Back
               </button>
@@ -405,7 +490,7 @@ export default function Appointments() {
                 type="button"
                 onClick={handleConfirmAction}
                 disabled={isSubmitting}
-                className={`text-xs font-medium text-white px-4 py-2 rounded-lg transition shadow-xs flex items-center gap-2 disabled:opacity-70 ${
+                className={`text-xs font-medium text-white px-4 py-2 rounded-lg transition shadow-xs flex items-center gap-2 disabled:opacity-70 cursor-pointer ${
                   confirmModal.type === 'confirm'
                     ? 'bg-emerald-800 hover:bg-emerald-900'
                     : 'bg-red-700 hover:bg-red-800'
