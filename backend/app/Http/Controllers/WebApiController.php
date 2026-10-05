@@ -160,21 +160,48 @@ public function searchPatients(Request $request)
         return response()->json($result);
     }
 
-    
-    public function getAppointments(Request $request)
-    {
-        $date = $request->query('date', Carbon::today()->toDateString());
+  public function getTodaysWaitingAppointments(Request $request)
+{
+    $today = Carbon::today()->toDateString();
 
-        $appointments = DB::table('appointments')
-            ->join('patients', 'appointments.patient_id', '=', 'patients.id')
-            ->join('users', 'appointments.doctor_id', '=', 'users.id')
-            ->whereDate('appointments.appointment_date', $date)
-            ->select('appointments.id', 'patients.full_name as patient_name', 'users.name as doctor_name', 'appointments.appointment_time', 'appointments.status')
-            ->get();
+    $waitingAppointments = DB::table('appointments')
+        ->join('patients', 'appointments.patient_id', '=', 'patients.id')
+        ->join('users as doctors', 'appointments.doctor_id', '=', 'doctors.id')
+        ->whereDate('appointments.appointment_date', $today)
+        ->where('appointments.status', 'Waiting')
+        ->select(
+            'appointments.id as appointment_id',
+            'appointments.patient_id',
+            'patients.full_name as patient_name',
+            'appointments.doctor_id',
+            'doctors.name as doctor_name',
+            'appointments.appointment_time',
+            'appointments.status'
+        )
+        ->orderBy('appointments.appointment_time', 'asc')
+        ->get();
 
-        return response()->json($appointments);
-    }
+    return response()->json([
+        'status' => 'success',
+        'data' => $waitingAppointments
+    ]);
+}
 
+
+   public function getAppointments(Request $request)
+{
+    $date = $request->query('date', Carbon::today()->toDateString());
+
+    $appointments = DB::table('appointments')
+        ->join('patients', 'appointments.patient_id', '=', 'patients.id')
+        ->join('users', 'appointments.doctor_id', '=', 'users.id')
+        ->whereDate('appointments.appointment_date', $date)
+        ->whereIn('appointments.status', ['Confirmed', 'Pending'])
+        ->select('appointments.id', 'patients.full_name as patient_name', 'users.name as doctor_name', 'appointments.appointment_time', 'appointments.status')
+        ->get();
+
+    return response()->json($appointments);
+}
     public function addAppointment(Request $request)
     {
         $request->validate([
@@ -334,6 +361,40 @@ public function submitConsultation(Request $request)
             'invoice_id' => $id,
         ], 201);
         }
+
+        public function getConsultations(Request $request)
+{
+    $consultations = DB::table('consultations')
+        ->join('patients', 'consultations.patient_id', '=', 'patients.id')
+        ->join('users as doctors', 'consultations.doctor_id', '=', 'doctors.id')
+        ->leftJoin('billing', 'consultations.id', '=', 'billing.consultation_id')
+        ->select(
+            'consultations.id as consultation_id',
+            'consultations.appointment_id',
+            'patients.id as patient_id',
+            'patients.full_name as patient_name',
+            'doctors.name as doctor_name',
+            'consultations.vitals',
+            'consultations.diagnosis',
+            'consultations.prescription_list',
+            'consultations.created_at as consultation_date',
+            DB::raw("COALESCE(billing.status, 'Unbilled') as billing_status"),
+            'billing.fee_amount',
+            'billing.payment_method',
+            'billing.payment_date'
+        )
+        ->where(function ($query) {
+            $query->whereNull('billing.status')
+                  ->orWhere('billing.status', 'Unbilled');
+        })
+        ->orderBy('consultations.created_at', 'desc')
+        ->get();
+
+    return response()->json([
+        'status' => 'success',
+        'data' => $consultations
+    ]);
+}
 
         public function getTodaysQueue(Request $request)
     {

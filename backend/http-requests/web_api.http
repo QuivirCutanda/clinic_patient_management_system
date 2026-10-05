@@ -83,7 +83,7 @@ Accept: application/json
 
 ### 6. VIEW DAILY APPOINTMENT ROSTER
 # @name getAppointments
-GET {{baseUrl}}/web/appointments?date=2026-10-03
+GET {{baseUrl}}/web/appointments?date=2026-10-05
 Authorization: Bearer {{webAuthToken}}
 Accept: application/json
 
@@ -121,6 +121,13 @@ Accept: application/json
 
 ###
 
+### GET TODAY'S WAITING APPOINTMENTS
+GET {{baseUrl}}/web/appointments/waiting-today
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
+
+###
+
 ### 10. SUBMIT DOCTOR CONSULTATION CHECK-UP
 # @name submitConsultation
 POST {{baseUrl}}/web/consultations
@@ -152,6 +159,13 @@ Accept: application/json
     "fee_amount": 500.00,
     "payment_method": "Cash"
 }
+
+###
+
+### GET ALL CONSULTATIONS FOR BILLING
+GET {{baseUrl}}/web/consultations
+Authorization: Bearer {{webAuthToken}}
+Accept: application/json
 
 ###
 

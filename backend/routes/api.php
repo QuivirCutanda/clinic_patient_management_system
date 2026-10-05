@@ -4,8 +4,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\WebApiController;
 use App\Http\Controllers\MobileApiController;
+use App\Http\Controllers\PublicQueueController;
 
 // Public Routes
+Route::get('/public/queue', [PublicQueueController::class, 'getPublicQueue']);
 Route::post('/web/login', [WebApiController::class, 'login']);
 Route::post('/mobile/register', [MobileApiController::class, 'register']);
 Route::post('/mobile/login', [MobileApiController::class, 'login']);
@@ -27,9 +29,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/web/appointments/{id}/confirm', [WebApiController::class, 'confirmAppointment']);
     Route::post('/web/consultations', [WebApiController::class, 'submitConsultation']);
     Route::post('/web/billing', [WebApiController::class, 'processBill']);
+    Route::get('/web/consultations', [WebApiController::class, 'getConsultations']);
     Route::get('/web/doctors', [WebApiController::class, 'getDoctors']);
     Route::get('/web/check-in/search', [WebApiController::class, 'searchCheckIn']);
     Route::patch('/web/appointments/{id}/check-in', [WebApiController::class, 'processCheckIn']);
+    Route::get('/web/appointments/waiting-today', [WebApiController::class, 'getTodaysWaitingAppointments']);
 
 });
 
@@ -46,5 +50,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/mobile/appointments/pending', [MobileApiController::class, 'getPendingAppointments']);
     Route::get('/mobile/appointments/confirmed', [MobileApiController::class, 'getConfirmedAppointments']);
     Route::get('/mobile/appointments/history', [MobileApiController::class, 'getHistoryAppointments']);
+    Route::get('/mobile/track-today', [PatientTrackingController::class, 'trackTodayVisit']);
 
 });

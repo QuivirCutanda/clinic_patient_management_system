@@ -8,6 +8,7 @@ import Patients from './pages/Patients';
 import Appointments from './pages/Appointments';
 import Consultations from './pages/Consultations';
 import Billing from './pages/Billing';
+import PublicQueue from './pages/PublicQueue';
 import './app.css';
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/queue" element={<PublicQueue />} />
         <Route element={<SidebarLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/check-in" element={<PatientCheckIn />} />

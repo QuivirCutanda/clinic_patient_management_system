@@ -329,4 +329,96 @@ public function getHistoryAppointments(Request $request)
 
     return response()->json($appointments);
 }
+
+public function trackTodayVisit(Request $request)
+    {
+        $patientId = $request->user()->id ?? $request->query('patient_id');
+        $today = Carbon::today()->toDateString();
+
+        $appointment = DB::table('appointments')
+            ->join('users as doctors', 'appointments.doctor_id', '=', 'doctors.id')
+            ->where('appointments.patient_id', $patientId)
+            ->whereDate('appointments.appointment_date', $today)
+            ->whereIn('appointments.status', ['Pending', 'Confirmed', 'Waiting', 'Completed'])
+            ->select(
+                'appointments.id as appointment_id',
+                'appointments.doctor_id',
+                'doctors.name as doctor_name',
+                'appointments.appointment_time',
+                'appointments.status as appointment_status',
+                'appointments.created_at'
+            )
+            ->latest('appointments.id')
+            ->first();
+
+        if (!$appointment) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'No active appointment found for today.'
+            ], 404);
+        }
+
+        $queuePosition = null;
+        $totalAhead = null;
+
+        if ($appointment->appointment_status === 'Waiting') {
+            $totalAhead = DB::table('appointments')
+                ->whereDate('appointment_date', $today)
+                ->where('doctor_id', $appointment->doctor_id)
+                ->where('status', 'Waiting')
+                ->where('id', '<', $appointment->appointment_id)
+                ->count();
+
+            $queuePosition = $totalAhead + 1;
+        }
+
+        $consultation = DB::table('consultations')
+            ->where('appointment_id', $appointment->appointment_id)
+            ->select('id as consultation_id', 'vitals', 'diagnosis', 'prescription_list', 'created_at')
+            ->first();
+
+        $billing = null;
+        if ($consultation) {
+            $billing = DB::table('billing')
+                ->where('consultation_id', $consultation->consultation_id)
+                ->select('id as billing_id', 'fee_amount', 'payment_method', 'status as billing_status')
+                ->first();
+        }
+
+        $currentStep = 1;
+        if ($appointment->appointment_status === 'Waiting') {
+            $currentStep = 2;
+        } elseif ($consultation && (!$billing || $billing->billing_status === 'Owed')) {
+            $currentStep = 3;
+        } elseif ($billing && $billing->billing_status === 'Paid') {
+            $currentStep = 4;
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'current_step' => $currentStep,
+            'tracking' => [
+                'appointment_id' => $appointment->appointment_id,
+                'doctor_name' => $appointment->doctor_name,
+                'appointment_time' => $appointment->appointment_time,
+                'status' => $appointment->appointment_status,
+                'queue' => [
+                    'position' => $queuePosition,
+                    'patients_ahead' => $totalAhead,
+                ],
+                'consultation' => $consultation ? [
+                    'consultation_id' => $consultation->consultation_id,
+                    'vitals' => $consultation->vitals,
+                    'diagnosis' => $consultation->diagnosis,
+                    'prescription_list' => $consultation->prescription_list,
+                ] : null,
+                'billing' => $billing ? [
+                    'billing_id' => $billing->billing_id,
+                    'fee_amount' => $billing->fee_amount,
+                    'payment_method' => $billing->payment_method,
+                    'status' => $billing->billing_status,
+                ] : null
+            ]
+        ]);
+    }
 }

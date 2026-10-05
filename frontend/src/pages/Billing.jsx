@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';
 
 export default function Billing() {
@@ -8,9 +8,107 @@ export default function Billing() {
     fee_amount: '', 
     payment_method: 'Cash' 
   });
+  const [consultations, setConsultations] = useState([]);
+  const [consultationSuggestions, setConsultationSuggestions] = useState([]);
+  const [patientSuggestions, setPatientSuggestions] = useState([]);
+  const [selectedPatientName, setSelectedPatientName] = useState('');
+  const [showConsultationDropdown, setShowConsultationDropdown] = useState(false);
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+
   const [printData, setPrintData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modal, setModal] = useState({ isOpen: false, type: '', message: '' });
+
+  const consultationRef = useRef(null);
+  const patientRef = useRef(null);
+
+  useEffect(() => {
+    fetchConsultations();
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (consultationRef.current && !consultationRef.current.contains(event.target)) {
+        setShowConsultationDropdown(false);
+      }
+      if (patientRef.current && !patientRef.current.contains(event.target)) {
+        setShowPatientDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const fetchConsultations = async () => {
+    try {
+      const res = await api.get('/web/consultations');
+      if (res.data && res.data.data) {
+        setConsultations(res.data.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleConsultationChange = (e) => {
+    const val = e.target.value;
+    setForm((prev) => ({ ...prev, consultation_id: val }));
+
+    if (!val.trim()) {
+      setConsultationSuggestions([]);
+      setShowConsultationDropdown(false);
+      return;
+    }
+
+    const filtered = consultations.filter((item) =>
+      String(item.consultation_id).includes(val) ||
+      String(item.patient_id).includes(val) ||
+      item.patient_name.toLowerCase().includes(val.toLowerCase())
+    );
+
+    setConsultationSuggestions(filtered);
+    setShowConsultationDropdown(true);
+  };
+
+  const selectConsultation = (item) => {
+    setForm((prev) => ({
+      ...prev,
+      consultation_id: String(item.consultation_id),
+      patient_id: String(item.patient_id)
+    }));
+    setSelectedPatientName(item.patient_name);
+    setShowConsultationDropdown(false);
+  };
+
+  const handlePatientChange = (e) => {
+    const val = e.target.value;
+    setForm((prev) => ({ ...prev, patient_id: val }));
+
+    if (!val.trim()) {
+      setPatientSuggestions([]);
+      setShowPatientDropdown(false);
+      return;
+    }
+
+    const filtered = consultations.filter((item) =>
+      String(item.patient_id).includes(val) ||
+      item.patient_name.toLowerCase().includes(val.toLowerCase()) ||
+      String(item.consultation_id).includes(val)
+    );
+
+    setPatientSuggestions(filtered);
+    setShowPatientDropdown(true);
+  };
+
+  const selectPatient = (item) => {
+    setForm((prev) => ({
+      ...prev,
+      patient_id: String(item.patient_id),
+      consultation_id: String(item.consultation_id)
+    }));
+    setSelectedPatientName(item.patient_name);
+    setShowPatientDropdown(false);
+  };
 
   const closeModal = () => {
     setModal({ isOpen: false, type: '', message: '' });
@@ -25,7 +123,12 @@ export default function Billing() {
         ...form,
         payment_method: 'Cash'
       });
-      const invoiceData = { ...form, payment_method: 'Cash', invoice_id: res.data.invoice_id };
+      const invoiceData = { 
+        ...form, 
+        patient_name: selectedPatientName,
+        payment_method: 'Cash', 
+        invoice_id: res.data.invoice_id 
+      };
       setPrintData(invoiceData);
       
       setModal({
@@ -40,6 +143,9 @@ export default function Billing() {
         fee_amount: '',
         payment_method: 'Cash'
       });
+      setSelectedPatientName('');
+
+      fetchConsultations();
 
       setTimeout(() => { 
         window.print(); 
@@ -58,7 +164,6 @@ export default function Billing() {
   return (
     <div className="min-h-screen bg-[#F8F6F0] text-stone-800 font-sans selection:bg-emerald-200 p-6 md:p-10 relative">
       <div className="max-w-xl mx-auto space-y-8 no-print">
-        
         <header className="border-b border-stone-200 pb-6">
           <div className="flex items-center gap-2 mb-2">
             <span className="w-2 h-2 rounded-full bg-emerald-600" />
@@ -72,34 +177,88 @@ export default function Billing() {
           className="bg-white border border-stone-200/90 rounded-xl p-6 md:p-8 shadow-2xs space-y-5"
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
+            <div className="space-y-1 relative" ref={consultationRef}>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600">
                 Consultation ID
               </label>
               <input 
-                type="number" 
-                placeholder="e.g. 501" 
+                type="text" 
+                placeholder="Search Consultation ID or Patient..." 
                 value={form.consultation_id} 
-                onChange={(e) => setForm({ ...form, consultation_id: e.target.value })} 
+                onChange={handleConsultationChange} 
+                onFocus={() => form.consultation_id && setShowConsultationDropdown(true)}
                 className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs font-mono" 
                 required 
               />
+              {showConsultationDropdown && consultationSuggestions.length > 0 && (
+                <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                  {consultationSuggestions.map((item) => (
+                    <button
+                      key={`c-${item.consultation_id}`}
+                      type="button"
+                      onClick={() => selectConsultation(item)}
+                      className="w-full text-left px-3 py-2 text-xs border-b border-stone-100 last:border-0 hover:bg-emerald-50 transition flex flex-col gap-0.5"
+                    >
+                      <div className="flex items-center justify-between font-mono font-semibold text-stone-800">
+                        <span>Consultation #{item.consultation_id}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${item.billing_status === 'Paid' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}`}>
+                          {item.billing_status}
+                        </span>
+                      </div>
+                      <div className="text-stone-600 font-sans">
+                        Patient: {item.patient_name} (ID: #{item.patient_id})
+                      </div>
+                      <div className="text-[10px] text-stone-400 font-sans">
+                        Doctor: {item.doctor_name} • {item.diagnosis}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-1 relative" ref={patientRef}>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600">
                 Patient ID
               </label>
               <input 
-                type="number" 
-                placeholder="e.g. 1042" 
+                type="text" 
+                placeholder="Search Patient ID or Name..." 
                 value={form.patient_id} 
-                onChange={(e) => setForm({ ...form, patient_id: e.target.value })} 
+                onChange={handlePatientChange} 
+                onFocus={() => form.patient_id && setShowPatientDropdown(true)}
                 className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs font-mono" 
                 required 
               />
+              {showPatientDropdown && patientSuggestions.length > 0 && (
+                <div className="absolute z-20 left-0 right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg max-h-56 overflow-y-auto">
+                  {patientSuggestions.map((item) => (
+                    <button
+                      key={`p-${item.consultation_id}`}
+                      type="button"
+                      onClick={() => selectPatient(item)}
+                      className="w-full text-left px-3 py-2 text-xs border-b border-stone-100 last:border-0 hover:bg-emerald-50 transition flex flex-col gap-0.5"
+                    >
+                      <div className="flex items-center justify-between font-semibold text-stone-800">
+                        <span>{item.patient_name}</span>
+                        <span className="font-mono text-stone-500">Patient #{item.patient_id}</span>
+                      </div>
+                      <div className="text-stone-600 text-[11px] font-mono">
+                        Linked Consultation #{item.consultation_id} ({item.billing_status})
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
+
+          {selectedPatientName && (
+            <div className="text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-lg font-medium flex items-center justify-between">
+              <span>Selected Patient: <strong>{selectedPatientName}</strong></span>
+              <span className="text-[10px] uppercase font-mono text-emerald-700">Matched</span>
+            </div>
+          )}
 
           <div className="space-y-1">
             <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600">
@@ -148,13 +307,11 @@ export default function Billing() {
             </button>
           </div>
         </form>
-
       </div>
 
       {modal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-xs no-print">
           <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-xl border border-stone-200 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            
             <div className="flex items-center gap-3">
               <div
                 className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
@@ -193,7 +350,6 @@ export default function Billing() {
                 Dismiss
               </button>
             </div>
-
           </div>
         </div>
       )}
@@ -206,6 +362,12 @@ export default function Billing() {
           </div>
 
           <div className="space-y-1 text-[11px] py-2 border-b border-dashed border-stone-400">
+            {printData.patient_name && (
+              <div className="flex justify-between">
+                <span>Patient Name:</span>
+                <span className="font-bold">{printData.patient_name}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span>Patient ID:</span>
               <span className="font-bold">#{printData.patient_id}</span>

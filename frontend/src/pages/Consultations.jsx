@@ -13,19 +13,37 @@ export default function Consultations() {
 
   const [patientSearch, setPatientSearch] = useState('');
   const [doctorSearch, setDoctorSearch] = useState('');
-  const [patientSuggestions, setPatientSuggestions] = useState([]);
-  const [doctorSuggestions, setDoctorSuggestions] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+
+  const [showApptList, setShowApptList] = useState(false);
   const [showPatientList, setShowPatientList] = useState(false);
   const [showDoctorList, setShowDoctorList] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [modal, setModal] = useState({ isOpen: false, type: '', message: '' });
 
+  const apptRef = useRef(null);
   const patientRef = useRef(null);
   const doctorRef = useRef(null);
 
+  const fetchWaitingAppointments = async () => {
+    try {
+      const res = await api.get('/web/appointments/waiting-today');
+      setAppointments(res.data.data || res.data || []);
+    } catch (err) {
+      setAppointments([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchWaitingAppointments();
+  }, []);
+
   useEffect(() => {
     const handleClickOutside = (e) => {
+      if (apptRef.current && !apptRef.current.contains(e.target)) {
+        setShowApptList(false);
+      }
       if (patientRef.current && !patientRef.current.contains(e.target)) {
         setShowPatientList(false);
       }
@@ -36,38 +54,6 @@ export default function Consultations() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
-
-  useEffect(() => {
-    if (!patientSearch.trim()) {
-      setPatientSuggestions([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      try {
-        const res = await api.get(`/web/patients?search=${encodeURIComponent(patientSearch)}`);
-        setPatientSuggestions(res.data.data || res.data || []);
-      } catch (err) {
-        setPatientSuggestions([]);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [patientSearch]);
-
-  useEffect(() => {
-    if (!doctorSearch.trim()) {
-      setDoctorSuggestions([]);
-      return;
-    }
-    const timer = setTimeout(async () => {
-      try {
-        const res = await api.get(`/web/doctors?search=${encodeURIComponent(doctorSearch)}`);
-        setDoctorSuggestions(res.data.data || res.data || []);
-      } catch (err) {
-        setDoctorSuggestions([]);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [doctorSearch]);
 
   const closeModal = () => {
     setModal({ isOpen: false, type: '', message: '' });
@@ -89,13 +75,84 @@ export default function Consultations() {
     return item.name || '';
   };
 
+  const selectAppointment = (appt) => {
+    const patientName = appt.patient_name || getFullName(appt.patient || appt);
+    const doctorName = appt.doctor_name || getFullName(appt.doctor || appt);
+    const pId = appt.patient_id ?? appt.patient?.id ?? appt.patient_user_id ?? '';
+    const dId = appt.doctor_id ?? appt.doctor?.id ?? appt.doctor_user_id ?? '';
+
+    setForm((prev) => ({
+      ...prev,
+      appointment_id: appt.appointment_id || appt.id || '',
+      patient_id: pId !== '' ? Number(pId) : '',
+      doctor_id: dId !== '' ? Number(dId) : ''
+    }));
+    setPatientSearch(patientName);
+    setDoctorSearch(doctorName);
+    setShowApptList(false);
+    setShowPatientList(false);
+    setShowDoctorList(false);
+  };
+
+  const handleApptInputChange = (val) => {
+    setForm((prev) => ({ ...prev, appointment_id: val }));
+    setShowApptList(true);
+    const matched = appointments.find(
+      (item) => String(item.appointment_id || item.id) === String(val)
+    );
+    if (matched) {
+      selectAppointment(matched);
+    }
+  };
+
+  const apptSuggestions = appointments.filter((item) => {
+    if (!form.appointment_id) return true;
+    const query = String(form.appointment_id).toLowerCase();
+    const idMatches = String(item.appointment_id || item.id).toLowerCase().includes(query);
+    const patientMatches = (item.patient_name || getFullName(item.patient || item)).toLowerCase().includes(query);
+    return idMatches || patientMatches;
+  });
+
+  const patientSuggestions = appointments.filter((item) => {
+    if (!patientSearch.trim()) return true;
+    const query = patientSearch.toLowerCase();
+    const name = (item.patient_name || getFullName(item.patient || item)).toLowerCase();
+    const id = String(item.patient_id || item.appointment_id || '');
+    return name.includes(query) || id.includes(query);
+  });
+
+  const doctorSuggestions = appointments.filter((item) => {
+    if (!doctorSearch.trim()) return true;
+    const query = doctorSearch.toLowerCase();
+    const name = (item.doctor_name || getFullName(item.doctor || item)).toLowerCase();
+    const id = String(item.doctor_id || item.appointment_id || '');
+    return name.includes(query) || id.includes(query);
+  });
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!form.patient_id || !form.doctor_id) {
+      setModal({
+        isOpen: true,
+        type: 'error',
+        message: 'Please select a valid appointment from the list so Patient ID and Doctor ID can be set.'
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
+    const payload = {
+      ...form,
+      appointment_id: form.appointment_id ? parseInt(form.appointment_id, 10) : null,
+      patient_id: parseInt(form.patient_id, 10),
+      doctor_id: parseInt(form.doctor_id, 10)
+    };
+
     try {
-      await api.post('/web/consultations', form);
-      
+      await api.post('/web/consultations', payload);
+
       setModal({
         isOpen: true,
         type: 'success',
@@ -112,10 +169,14 @@ export default function Consultations() {
       });
       setPatientSearch('');
       setDoctorSearch('');
+      fetchWaitingAppointments();
     } catch (err) {
-      const errorMessage =
-        err.response?.data?.message ||
-        'Failed to submit consultation record. Please try again.';
+      let errorMessage = 'Failed to submit consultation record. Please try again.';
+      if (err.response?.data?.errors) {
+        errorMessage = Object.values(err.response.data.errors).flat().join(' ');
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
 
       setModal({
         isOpen: true,
@@ -143,18 +204,36 @@ export default function Consultations() {
           className="bg-white border border-stone-200/90 rounded-xl p-6 md:p-8 shadow-2xs space-y-6"
         >
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1">
+            <div className="space-y-1 relative" ref={apptRef}>
               <label className="block text-xs font-semibold uppercase tracking-wider text-stone-600">
                 Appt ID
               </label>
               <input
-                type="number"
-                placeholder="e.g. 501"
+                type="text"
+                placeholder="e.g. 9 or select..."
                 value={form.appointment_id}
-                onChange={(e) => setForm({ ...form, appointment_id: e.target.value })}
+                onFocus={() => setShowApptList(true)}
+                onChange={(e) => handleApptInputChange(e.target.value)}
                 className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs font-mono"
                 required
               />
+              {showApptList && apptSuggestions.length > 0 && (
+                <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg max-h-48 overflow-y-auto text-xs">
+                  {apptSuggestions.map((appt) => (
+                    <div
+                      key={appt.appointment_id || appt.id}
+                      onClick={() => selectAppointment(appt)}
+                      className="px-3 py-2 hover:bg-emerald-50 cursor-pointer text-stone-700 hover:text-emerald-900 border-b border-stone-100 last:border-none flex justify-between items-center"
+                    >
+                      <div>
+                        <span className="font-medium text-stone-900 block">Appt #{appt.appointment_id || appt.id}</span>
+                        <span className="text-[10px] text-stone-500">{appt.patient_name || getFullName(appt.patient)} • {appt.doctor_name || getFullName(appt.doctor)}</span>
+                      </div>
+                      <span className="text-[10px] text-emerald-700 font-mono font-medium">{appt.appointment_time || appt.status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1 relative" ref={patientRef}>
@@ -163,12 +242,12 @@ export default function Consultations() {
               </label>
               <input
                 type="text"
-                placeholder="Type patient name or ID..."
+                placeholder="Type patient name or select..."
                 value={patientSearch}
                 onFocus={() => setShowPatientList(true)}
                 onChange={(e) => {
                   setPatientSearch(e.target.value);
-                  setForm({ ...form, patient_id: '' });
+                  setForm((prev) => ({ ...prev, patient_id: '' }));
                   setShowPatientList(true);
                 }}
                 className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs"
@@ -176,21 +255,20 @@ export default function Consultations() {
               />
               {showPatientList && patientSuggestions.length > 0 && (
                 <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg max-h-48 overflow-y-auto text-xs">
-                  {patientSuggestions.map((p) => {
-                    const id = p.id || p.patient_id || p.user_id;
-                    const fullName = getFullName(p) || `Patient #${id}`;
+                  {patientSuggestions.map((appt) => {
+                    const id = appt.appointment_id || appt.id;
+                    const name = appt.patient_name || getFullName(appt.patient || appt);
                     return (
                       <div
                         key={id}
-                        onClick={() => {
-                          setForm({ ...form, patient_id: id });
-                          setPatientSearch(`${fullName} (ID: ${id})`);
-                          setShowPatientList(false);
-                        }}
+                        onClick={() => selectAppointment(appt)}
                         className="px-3 py-2 hover:bg-emerald-50 cursor-pointer text-stone-700 hover:text-emerald-900 border-b border-stone-100 last:border-none flex justify-between items-center"
                       >
-                        <span className="font-medium text-stone-900">{fullName}</span>
-                        <span className="text-[10px] text-stone-500 font-mono">ID: {id}</span>
+                        <div>
+                          <span className="font-medium text-stone-900 block">{name}</span>
+                          <span className="text-[10px] text-stone-500">{appt.doctor_name || getFullName(appt.doctor)}</span>
+                        </div>
+                        <span className="text-[10px] text-stone-500 font-mono">Appt #{id}</span>
                       </div>
                     );
                   })}
@@ -204,12 +282,12 @@ export default function Consultations() {
               </label>
               <input
                 type="text"
-                placeholder="Type doctor name or ID..."
+                placeholder="Type doctor name or select..."
                 value={doctorSearch}
                 onFocus={() => setShowDoctorList(true)}
                 onChange={(e) => {
                   setDoctorSearch(e.target.value);
-                  setForm({ ...form, doctor_id: '' });
+                  setForm((prev) => ({ ...prev, doctor_id: '' }));
                   setShowDoctorList(true);
                 }}
                 className="w-full bg-white border border-stone-300 text-xs text-stone-800 placeholder-stone-400 px-3 py-2.5 rounded-lg focus:outline-none focus:border-emerald-700 transition shadow-2xs"
@@ -217,21 +295,20 @@ export default function Consultations() {
               />
               {showDoctorList && doctorSuggestions.length > 0 && (
                 <div className="absolute z-10 top-full left-0 right-0 mt-1 bg-white border border-stone-200 rounded-lg shadow-lg max-h-48 overflow-y-auto text-xs">
-                  {doctorSuggestions.map((d) => {
-                    const id = d.id || d.doctor_id || d.user_id;
-                    const fullName = getFullName(d) || `Doctor #${id}`;
+                  {doctorSuggestions.map((appt) => {
+                    const id = appt.appointment_id || appt.id;
+                    const name = appt.doctor_name || getFullName(appt.doctor || appt);
                     return (
                       <div
                         key={id}
-                        onClick={() => {
-                          setForm({ ...form, doctor_id: id });
-                          setDoctorSearch(`${fullName} (ID: ${id})`);
-                          setShowDoctorList(false);
-                        }}
+                        onClick={() => selectAppointment(appt)}
                         className="px-3 py-2 hover:bg-emerald-50 cursor-pointer text-stone-700 hover:text-emerald-900 border-b border-stone-100 last:border-none flex justify-between items-center"
                       >
-                        <span className="font-medium text-stone-900">{fullName}</span>
-                        <span className="text-[10px] text-stone-500 font-mono">ID: {id}</span>
+                        <div>
+                          <span className="font-medium text-stone-900 block">{name}</span>
+                          <span className="text-[10px] text-stone-500">Patient: {appt.patient_name || getFullName(appt.patient)}</span>
+                        </div>
+                        <span className="text-[10px] text-stone-500 font-mono">Appt #{id}</span>
                       </div>
                     );
                   })}
