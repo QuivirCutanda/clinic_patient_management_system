@@ -7,10 +7,15 @@ class ConfirmedAppointmentsPage extends StatefulWidget {
 
   static const bgWarm = Color(0xFFF8F6F0);
   static const emeraldDark = Color(0xFF064E3B);
+  static const emerald800 = Color(0xFF065F46);
+  static const emerald50 = Color(0xFFECFDF5);
+  static const emerald200 = Color(0xFFA7F3D0);
   static const stone900 = Color(0xFF1C1917);
   static const stone800 = Color(0xFF292524);
   static const stone600 = Color(0xFF57534E);
+  static const stone500 = Color(0xFF78716C);
   static const stone300 = Color(0xFFD6D3D1);
+  static const stone200 = Color(0xFFE7E5E4);
 
   @override
   State<ConfirmedAppointmentsPage> createState() => _ConfirmedAppointmentsPageState();
@@ -43,24 +48,39 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
   }
 
   String _formatTime(String? timeStr) {
-    if (timeStr == null || timeStr.isEmpty) return 'N/A';
+    if (timeStr == null || timeStr.trim().isEmpty) return 'N/A';
     try {
-      final parts = timeStr.split(':');
+      String cleanTime = timeStr.trim();
+      bool isPm = cleanTime.toUpperCase().contains('PM');
+      bool isAm = cleanTime.toUpperCase().contains('AM');
+
+      cleanTime = cleanTime.replaceAll(RegExp(r'[a-zA-Z]'), '').trim();
+      final parts = cleanTime.split(':');
       if (parts.length >= 2) {
         int hour = int.parse(parts[0]);
         int minute = int.parse(parts[1]);
+
+        if (isPm && hour < 12) {
+          hour += 12;
+        } else if (isAm && hour == 12) {
+          hour = 0;
+        }
+
         String period = hour >= 12 ? 'PM' : 'AM';
-        hour = hour % 12;
-        if (hour == 0) hour = 12;
+        int formattedHour = hour % 12;
+        if (formattedHour == 0) formattedHour = 12;
+
+        String hourStr = formattedHour.toString().padLeft(2, '0');
         String minuteStr = minute.toString().padLeft(2, '0');
-        return '$hour:$minuteStr $period';
+
+        return '$hourStr:$minuteStr $period';
       }
     } catch (_) {}
     return timeStr;
   }
 
   String _formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return 'N/A';
+    if (dateStr == null || dateStr.trim().isEmpty) return 'N/A';
     try {
       DateTime parsedDate = DateTime.parse(dateStr);
       List<String> months = [
@@ -76,9 +96,9 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
     switch (status.toLowerCase()) {
       case 'confirmed':
         return {
-          'bg': const Color(0xFFECFDF5),
-          'border': const Color(0xFFA7F3D0),
-          'text': const Color(0xFF065F46),
+          'bg': ConfirmedAppointmentsPage.emerald50,
+          'border': ConfirmedAppointmentsPage.emerald200,
+          'text': ConfirmedAppointmentsPage.emerald800,
         };
       case 'waiting':
         return {
@@ -96,28 +116,30 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
   }
 
   void _showAppointmentDetails(BuildContext context, Map<String, dynamic> item) {
-    final status = item['status'] ?? 'Confirmed';
-    final badge = _getBadgeColors(status);
+    final doctorName = item['doctor_name'] ?? 'Doctor';
+    final specialization = item['specialization'] ?? 'General Medicine';
     final formattedDate = _formatDate(item['appointment_date']);
     final formattedTime = _formatTime(item['appointment_time']);
+    final status = item['status'] ?? 'Confirmed';
+    final badge = _getBadgeColors(status);
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
         return Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
                 child: Container(
-                  width: 40,
+                  width: 36,
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
@@ -126,73 +148,68 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
                   ),
                 ),
               ),
-              const Text(
-                'Appointment Details',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontFamily: 'Serif',
-                  fontWeight: FontWeight.bold,
-                  color: ConfirmedAppointmentsPage.stone900,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Appointment Details',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontFamily: 'Serif',
+                      fontWeight: FontWeight.bold,
+                      color: ConfirmedAppointmentsPage.stone900,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: badge['bg'],
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: badge['border']!),
+                    ),
+                    child: Text(
+                      status.toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                        color: badge['text'],
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
-              const Divider(color: ConfirmedAppointmentsPage.stone300),
-              const SizedBox(height: 12),
-              _buildDetailRow(Icons.person_outline, 'Doctor Name', item['doctor_name'] ?? 'Doctor'),
-              if (item['specialization'] != null)
-                _buildDetailRow(Icons.medical_services_outlined, 'Specialization', item['specialization']),
-              _buildDetailRow(Icons.calendar_today_outlined, 'Date', formattedDate),
-              _buildDetailRow(Icons.access_time_outlined, 'Time', formattedTime),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Row(
-                  children: [
-                    const Icon(Icons.info_outline, size: 20, color: ConfirmedAppointmentsPage.emeraldDark),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Status',
-                          style: TextStyle(fontSize: 12, color: ConfirmedAppointmentsPage.stone600),
-                        ),
-                        const SizedBox(height: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: badge['bg'],
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: badge['border']!),
-                          ),
-                          child: Text(
-                            status,
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: badge['text'],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              const Divider(color: ConfirmedAppointmentsPage.stone200, height: 1),
+              const SizedBox(height: 16),
+              _buildDetailRow(Icons.person_outline, 'DOCTOR NAME', doctorName),
+              const SizedBox(height: 14),
+              _buildDetailRow(Icons.medical_services_outlined, 'SPECIALIZATION', specialization),
+              const SizedBox(height: 14),
+              _buildDetailRow(Icons.calendar_today_outlined, 'DATE', formattedDate),
+              const SizedBox(height: 14),
+              _buildDetailRow(Icons.access_time_outlined, 'TIME', formattedTime),
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
+                height: 48,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ConfirmedAppointmentsPage.emeraldDark,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    elevation: 0,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   onPressed: () => Navigator.pop(context),
                   child: const Text(
                     'Close',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ),
@@ -204,19 +221,32 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
   }
 
   Widget _buildDetailRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: ConfirmedAppointmentsPage.emeraldDark),
-          const SizedBox(width: 12),
-          Column(
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: ConfirmedAppointmentsPage.emerald50,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, size: 18, color: ConfirmedAppointmentsPage.emeraldDark),
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 label,
-                style: const TextStyle(fontSize: 12, color: ConfirmedAppointmentsPage.stone600),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                  color: ConfirmedAppointmentsPage.stone500,
+                  fontFamily: 'monospace',
+                ),
               ),
+              const SizedBox(height: 2),
               Text(
                 value,
                 style: const TextStyle(
@@ -227,8 +257,8 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
               ),
             ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -239,11 +269,12 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
       appBar: AppBar(
         backgroundColor: ConfirmedAppointmentsPage.bgWarm,
         elevation: 0,
+        scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: ConfirmedAppointmentsPage.stone900),
         title: const Text(
           "Confirmed Appointments",
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 20,
             fontFamily: 'Serif',
             fontWeight: FontWeight.bold,
             color: ConfirmedAppointmentsPage.stone900,
@@ -259,28 +290,43 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
                 child: CircularProgressIndicator(
-                  color: ConfirmedAppointmentsPage.emeraldDark,
+                  valueColor: AlwaysStoppedAnimation<Color>(ConfirmedAppointmentsPage.emeraldDark),
                 ),
               );
             } else if (snapshot.hasError) {
               return Center(
                 child: Padding(
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(24),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(Icons.error_outline_rounded, size: 36, color: Colors.red.shade700),
+                      ),
+                      const SizedBox(height: 16),
                       Text(
                         '${snapshot.error}',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: ConfirmedAppointmentsPage.stone600),
+                        style: const TextStyle(
+                          color: ConfirmedAppointmentsPage.stone600,
+                          fontSize: 14,
+                        ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _refresh,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: ConfirmedAppointmentsPage.emeraldDark,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                         ),
                         child: const Text('Retry', style: TextStyle(color: Colors.white)),
                       ),
@@ -292,12 +338,36 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.event_available_outlined, size: 48, color: ConfirmedAppointmentsPage.stone600),
-                    SizedBox(height: 12),
-                    Text(
-                      'No confirmed appointments',
-                      style: TextStyle(fontSize: 16, color: ConfirmedAppointmentsPage.stone600),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: const BoxDecoration(
+                        color: ConfirmedAppointmentsPage.emerald50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.event_available_outlined,
+                        size: 40,
+                        color: ConfirmedAppointmentsPage.emeraldDark,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No Confirmed Appointments',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontFamily: 'Serif',
+                        fontWeight: FontWeight.bold,
+                        color: ConfirmedAppointmentsPage.stone900,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Your upcoming confirmed appointments will appear here.',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: ConfirmedAppointmentsPage.stone500,
+                      ),
                     ),
                   ],
                 ),
@@ -307,9 +377,10 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
             final confirmedList = snapshot.data!;
 
             return ListView.separated(
-              padding: const EdgeInsets.all(20),
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               itemCount: confirmedList.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (_, __) => const SizedBox(height: 14),
               itemBuilder: (context, index) {
                 final item = confirmedList[index] as Map<String, dynamic>;
                 final doctorName = item['doctor_name'] ?? 'Doctor';
@@ -319,83 +390,145 @@ class _ConfirmedAppointmentsPageState extends State<ConfirmedAppointmentsPage> {
                 final status = item['status'] ?? 'Confirmed';
                 final badge = _getBadgeColors(status);
 
-                return Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () => _showAppointmentDetails(context, item),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: ConfirmedAppointmentsPage.stone300),
+                final initial = doctorName.isNotEmpty ? doctorName.replaceAll('Dr.', '').trim()[0].toUpperCase() : 'D';
+
+                return Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: ConfirmedAppointmentsPage.stone300.withOpacity(0.8)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                doctorName,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontFamily: 'Serif',
-                                  fontWeight: FontWeight.bold,
-                                  color: ConfirmedAppointmentsPage.stone900,
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: badge['bg'],
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: badge['border']!),
-                                ),
-                                child: Text(
-                                  status,
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                    color: badge['text'],
+                    ],
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(16),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () => _showAppointmentDetails(context, item),
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: ConfirmedAppointmentsPage.emerald50,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: ConfirmedAppointmentsPage.emerald200),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      initial,
+                                      style: const TextStyle(
+                                        color: ConfirmedAppointmentsPage.emeraldDark,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: 'Serif',
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            specialization,
-                            style: const TextStyle(fontSize: 12, color: ConfirmedAppointmentsPage.stone600),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              const Icon(Icons.calendar_today_outlined, size: 14, color: ConfirmedAppointmentsPage.stone600),
-                              const SizedBox(width: 6),
-                              Text(
-                                appointmentDate,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: ConfirmedAppointmentsPage.stone800,
-                                  fontFamily: 'monospace',
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        doctorName,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontFamily: 'Serif',
+                                          fontWeight: FontWeight.bold,
+                                          color: ConfirmedAppointmentsPage.stone900,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        specialization,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: ConfirmedAppointmentsPage.stone600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 16),
-                              const Icon(Icons.access_time_outlined, size: 14, color: ConfirmedAppointmentsPage.stone600),
-                              const SizedBox(width: 6),
-                              Text(
-                                appointmentTime,
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: ConfirmedAppointmentsPage.stone800,
-                                  fontFamily: 'monospace',
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: badge['bg'],
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: badge['border']!),
+                                  ),
+                                  child: Text(
+                                    status.toUpperCase(),
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                      color: badge['text'],
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: ConfirmedAppointmentsPage.bgWarm,
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            ],
-                          ),
-                        ],
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.calendar_today_outlined,
+                                    size: 14,
+                                    color: ConfirmedAppointmentsPage.emeraldDark,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    appointmentDate,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: ConfirmedAppointmentsPage.stone800,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  const Icon(
+                                    Icons.access_time_outlined,
+                                    size: 14,
+                                    color: ConfirmedAppointmentsPage.emeraldDark,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    appointmentTime,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: ConfirmedAppointmentsPage.stone800,
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),

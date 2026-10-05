@@ -19,9 +19,14 @@ class _ProfileTabState extends State<ProfileTab> {
 
   static const bgWarm = Color(0xFFF8F6F0);
   static const emeraldDark = Color(0xFF064E3B);
+  static const emerald800 = Color(0xFF065F46);
+  static const emerald50 = Color(0xFFECFDF5);
+  static const emerald200 = Color(0xFFA7F3D0);
   static const stone900 = Color(0xFF1C1917);
   static const stone600 = Color(0xFF57534E);
+  static const stone500 = Color(0xFF78716C);
   static const stone300 = Color(0xFFD6D3D1);
+  static const stone200 = Color(0xFFE7E5E4);
 
   @override
   void initState() {
@@ -132,7 +137,7 @@ class _ProfileTabState extends State<ProfileTab> {
     if (mounted) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const AuthScreen()),
-            (route) => false,
+        (route) => false,
       );
     }
   }
@@ -169,7 +174,11 @@ class _ProfileTabState extends State<ProfileTab> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _fetchPatientInfo,
-                style: ElevatedButton.styleFrom(backgroundColor: emeraldDark),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: emeraldDark,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
                 child: const Text('Retry', style: TextStyle(color: Colors.white)),
               ),
             ],
@@ -190,31 +199,65 @@ class _ProfileTabState extends State<ProfileTab> {
     final bloodType = data['blood_type'] ?? 'N/A';
     final allergies = data['allergies'] ?? 'None reported';
 
+    final initials = fullName != 'N/A' && fullName.isNotEmpty
+        ? fullName.trim().split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase()
+        : 'P';
+
     return RefreshIndicator(
       color: emeraldDark,
       onRefresh: _fetchPatientInfo,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text(
-                    'My Profile',
-                    style: TextStyle(
-                      fontFamily: 'Serif',
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
-                      color: stone900,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: emeraldDark,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Text(
+                            'PATIENT PORTAL',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.2,
+                              color: stone500,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'My Profile',
+                        style: TextStyle(
+                          fontFamily: 'Serif',
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: -0.5,
+                          color: stone900,
+                        ),
+                      ),
+                    ],
                   ),
-                  TextButton.icon(
-                    onPressed: () async {
+                  InkWell(
+                    onTap: () async {
                       final didUpdate = await Navigator.push(
                         context,
                         MaterialPageRoute(
@@ -227,60 +270,155 @@ class _ProfileTabState extends State<ProfileTab> {
                         _fetchPatientInfo();
                       }
                     },
-                    icon: const Icon(Icons.edit, size: 18, color: emeraldDark),
-                    label: const Text(
-                      'Edit',
-                      style: TextStyle(color: emeraldDark, fontWeight: FontWeight.bold),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: stone300),
+                      ),
+                      child: Row(
+                        children: const [
+                          Icon(Icons.edit_outlined, size: 16, color: emeraldDark),
+                          SizedBox(width: 4),
+                          Text(
+                            'Edit',
+                            style: TextStyle(
+                              color: emeraldDark,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
-              _buildCardSection([
-                _buildProfileItem('Full Name', fullName),
-                const Divider(color: stone300, height: 32),
-                _buildProfileItem('Email Address', email),
-                const Divider(color: stone300, height: 32),
-                _buildProfileItem('Account Status', 'Active Patient', isStatus: true),
-              ]),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: emeraldDark,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        color: emerald50,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: emerald200, width: 1.5),
+                      ),
+                      child: Center(
+                        child: Text(
+                          initials,
+                          style: const TextStyle(
+                            color: emeraldDark,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Serif',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fullName,
+                            style: const TextStyle(
+                              fontFamily: 'Serif',
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            email,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: emerald50.withOpacity(0.85),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: emerald800,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: emerald200.withOpacity(0.3)),
+                            ),
+                            child: const Text(
+                              'Active Patient',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: emerald50,
+                                fontFamily: 'monospace',
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
               _buildSectionHeader('Personal Information'),
               _buildCardSection([
-                _buildProfileItem('Date of Birth', dob),
-                const Divider(color: stone300, height: 32),
-                _buildProfileItem('Sex', sex),
-                const Divider(color: stone300, height: 32),
-                _buildProfileItem('Contact Number', contact),
-                const Divider(color: stone300, height: 32),
-                _buildProfileItem('Emergency Contact', emergency),
-                const Divider(color: stone300, height: 32),
-                _buildProfileItem('Home Address', address),
+                _buildProfileItem('Date of Birth', dob, icon: Icons.cake_outlined),
+                const Divider(color: stone200, height: 28),
+                _buildProfileItem('Sex', sex, icon: Icons.person_outline),
+                const Divider(color: stone200, height: 28),
+                _buildProfileItem('Contact Number', contact, icon: Icons.phone_outlined),
+                const Divider(color: stone200, height: 28),
+                _buildProfileItem('Emergency Contact', emergency, icon: Icons.contact_phone_outlined),
+                const Divider(color: stone200, height: 28),
+                _buildProfileItem('Home Address', address, icon: Icons.home_outlined),
               ]),
-              const SizedBox(height: 16),
-              _buildSectionHeader('Medical & Insurance info'),
+              const SizedBox(height: 20),
+              _buildSectionHeader('Medical & Insurance Info'),
               _buildCardSection([
-                _buildProfileItem('Insurance Provider', insurance),
-                const Divider(color: stone300, height: 32),
-                _buildProfileItem('Blood Type', bloodType),
-                const Divider(color: stone300, height: 32),
-                _buildProfileItem('Known Allergies', allergies),
+                _buildProfileItem('Insurance Provider', insurance, icon: Icons.verified_user_outlined),
+                const Divider(color: stone200, height: 28),
+                _buildProfileItem('Blood Type', bloodType, icon: Icons.bloodtype_outlined),
+                const Divider(color: stone200, height: 28),
+                _buildProfileItem('Known Allergies', allergies, icon: Icons.warning_amber_outlined),
               ]),
-              const SizedBox(height: 24),
+              const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
-                height: 50,
+                height: 48,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
+                    backgroundColor: Colors.white,
                     side: const BorderSide(color: stone300),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   onPressed: _showLogoutConfirmation,
-                  icon: const Icon(Icons.logout_rounded, color: stone600, size: 20),
+                  icon: const Icon(Icons.logout_rounded, color: stone600, size: 18),
                   label: const Text(
                     'Sign Out',
                     style: TextStyle(
                       color: stone600,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -296,13 +434,13 @@ class _ProfileTabState extends State<ProfileTab> {
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 10, top: 12),
+      padding: const EdgeInsets.only(left: 4, bottom: 8, top: 4),
       child: Text(
         title.toUpperCase(),
         style: const TextStyle(
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
+          letterSpacing: 1.1,
           color: stone600,
           fontFamily: 'monospace',
         ),
@@ -313,16 +451,16 @@ class _ProfileTabState extends State<ProfileTab> {
   Widget _buildCardSection(List<Widget> children) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: stone300.withOpacity(0.6)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: stone300.withOpacity(0.8)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.01),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
+            color: Colors.black.withOpacity(0.015),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -333,46 +471,38 @@ class _ProfileTabState extends State<ProfileTab> {
     );
   }
 
-  Widget _buildProfileItem(String label, String value, {bool isStatus = false}) {
-    return Column(
+  Widget _buildProfileItem(String label, String value, {required IconData icon}) {
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.0,
-            color: stone600,
-            fontFamily: 'monospace',
+        Icon(icon, size: 18, color: stone500),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label.toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.8,
+                  color: stone500,
+                  fontFamily: 'monospace',
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: stone900,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 6),
-        if (isStatus)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: emeraldDark.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: const Text(
-              'Active Portal',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: emeraldDark,
-              ),
-            ),
-          )
-        else
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-              color: stone900,
-            ),
-          ),
       ],
     );
   }
